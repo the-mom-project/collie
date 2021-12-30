@@ -251,7 +251,11 @@ def test_stratified_split(implicit_interactions_to_split,
 def test_stratified_split_with_user_with_only_one_interaction(
     interactions_to_split_with_a_user_with_only_one_interaction,
 ):
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match='Unable to straify split on users. The ``interactions`` object '
+              'contains users with only one interaction, consider running '
+              '``collie.utils.remove_users_with_fewer_than_n_interactions`` first.'):
         stratified_split(
             interactions=interactions_to_split_with_a_user_with_only_one_interaction,
             test_p=0.2,

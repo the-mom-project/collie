@@ -1,8 +1,12 @@
 import sys
 from typing import Optional, Tuple, Union
+import warnings
 
 from pytorch_lightning import Trainer
-from pytorch_lightning.core.memory import ModelSummary
+try:
+    from pytorch_lightning.utilities.model_summary import ModelSummary
+except ImportError:
+    from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.loggers.base import LightningLoggerBase
 from pytorch_lightning.utilities.apply_func import move_data_to_device
 import torch
@@ -169,11 +173,17 @@ class CollieMinimalTrainer():
         How often to log within steps, if ``logger`` is enabled
     flush_logs_every_n_steps: int
         How often to flush logs to disk, if ``logger`` is enabled
+    max_depth: int
+        Maximum depth of modules to show, use -1 to show all modules or 0 to show no summary.
+        Related to PyTorch Lightning's ``Trainer.enable_model_summary`` argument.
     weights_summary: str
-        Prints a summary of the weights when training begins
+        Deprecated, replaced with ``max_depth``. Prints summary of the weights when training begins
+    detect_anomaly: bool
+        Enable anomaly detection for the autograd engine.
     terminate_on_nan: bool
-        If set to ``True``, will terminate training (by raising a ``ValueError``) at the end of each
-        training batch, if any of the parameters or the loss are NaN or +/- infinity
+        Deprecated. Replaced with ``detect_anomaly``. If set to ``True``, will terminate training
+        (by raising a ``ValueError``) at the end of each training batch, if any of the parameters
+        or the loss are NaN or +/- infinity
     benchmark: bool
         If set to ``True``, enables ``cudnn.benchmark``
     deterministic: bool
@@ -198,8 +208,10 @@ class CollieMinimalTrainer():
                  early_stopping_patience: Optional[int] = 3,
                  log_every_n_steps: int = 50,
                  flush_logs_every_n_steps: int = 100,
-                 weights_summary: Optional[str] = 'top',
-                 terminate_on_nan: bool = False,
+                 max_depth: int = 1,
+                 weights_summary: Optional[str] = None,
+                 detect_anomaly: bool = False,
+                 terminate_on_nan: Optional[bool] = None,
                  benchmark: bool = True,
                  deterministic: bool = True,
                  progress_bar_refresh_rate: Optional[int] = None,
@@ -220,6 +232,18 @@ class CollieMinimalTrainer():
         elif verbosity is False:
             verbosity = 0
 
+        if weights_summary is not None:
+            warnings.warn('``weights_summary`` is deprecated and was replaced with ``max_depth``.',
+                          DeprecationWarning)
+
+        if terminate_on_nan is not None:
+            warnings.warn(
+                '``terminate_on_nan`` is deprecated and was replaced with ``detect_anomaly``.',
+                DeprecationWarning
+            )
+            if not detect_anomaly:
+                detect_anomaly = terminate_on_nan
+
         self.max_epochs = max_epochs
         self.gpus = gpus
         self.benchmark = benchmark
@@ -228,7 +252,9 @@ class CollieMinimalTrainer():
         self.early_stopping_patience = early_stopping_patience
         self.log_every_n_steps = log_every_n_steps
         self.flush_logs_every_n_steps = flush_logs_every_n_steps
+        self.max_depth = max_depth
         self.weights_summary = weights_summary
+        self.detect_anomaly = detect_anomaly
         self.terminate_on_nan = terminate_on_nan
         self.progress_bar_refresh_rate = progress_bar_refresh_rate
         self.verbosity = verbosity
@@ -286,6 +312,20 @@ class CollieMinimalTrainer():
             self.first_run_pre_training_setup_complete_ = True
 
         self._initialize_optimizers_and_lr_schedulers(model=model)
+
+        with torch.autograd.set_detect_anomaly(self.detect_anomaly):
+            self._fit(model)
+
+    def _fit(self, model: BasePipeline) -> None:
+        """
+        Runs the full optimization routine.
+
+        Parameters
+        ----------
+        model: collie.model.BasePipeline
+            Initialized Collie model
+
+        """
 
         # set up top-level epoch progress bar
         epoch_iterator = range(self.num_epochs_completed + 1, self.max_epochs + 1)
@@ -359,10 +399,9 @@ class CollieMinimalTrainer():
         self.train_dataloader = model.train_dataloader()
         self.val_dataloader = model.val_dataloader()
 
-        if self.verbosity != 0 and self.weights_summary is not None:
+        if self.verbosity != 0 and (self.weights_summary is not None or self.max_depth != 0):
             try:
-                max_depth = ModelSummary.MODES[self.weights_summary]
-                print(ModelSummary(model, max_depth=max_depth))
+                print(ModelSummary(model, max_depth=self.max_depth))
             except TypeError:
                 # compatible with old ``ModelSummary`` API used in versions prior to ``1.6``
                 print(ModelSummary(model, mode=self.weights_summary))
@@ -421,9 +460,6 @@ class CollieMinimalTrainer():
                                      optimizer_closure=None)
 
             self.train_steps += 1
-
-            if self.terminate_on_nan and not torch.isfinite(loss).all():
-                raise ValueError(f'Loss is {loss}, stopping training early!')
 
             detached_loss = loss.detach()
             total_loss += detached_loss

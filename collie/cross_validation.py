@@ -140,7 +140,8 @@ def stratified_split(interactions: BaseInteractions,
                      val_p: float = 0.0,
                      test_p: float = 0.2,
                      processes: int = -1,
-                     seed: Optional[int] = None) -> Tuple[BaseInteractions, ...]:
+                     seed: Optional[int] = None,
+                     ignore_warning: bool = False) -> Tuple[BaseInteractions, ...]:
     """
     Split an ``Interactions`` instance into train, validate, and test datasets in a stratified
     manner such that each user appears at least once in each of the datasets.
@@ -176,6 +177,8 @@ def stratified_split(interactions: BaseInteractions,
         will be used
     seed: int
         Random seed for splits
+    ignore_warning: bool
+        Ignore warning when users have only one interaction, force those users into the training set
 
     Returns
     -------
@@ -226,17 +229,30 @@ def stratified_split(interactions: BaseInteractions,
 def _stratified_split(interactions: BaseInteractions,
                       test_p: float,
                       processes: int,
-                      seed: int) -> Tuple[Interactions, Interactions]:
+                      seed: int,
+                      ignore_warning: bool = False) -> Tuple[Interactions, Interactions]:
     users = interactions.mat.row
     unique_users = set(users)
+    multi_interaction_users = [user for user in users if users.tolist().count(user) != 1]
 
+    if ignore_warning is False and len(multi_interaction_users) != len(users):
+        raise ValueError(
+            'Unable to straify split on users. The ``interactions`` object contains users '
+            'with only one interaction, consider running '
+            '``collie.utils.remove_users_with_fewer_than_n_interactions`` first.'
+        )
     # while we should be able to run ``np.where(users == user)[0]`` to find all items each user
     # interacted with, by building up a dictionary to get these values instead, we can achieve the
     # same result in O(N) complexity rather than O(M * N), a nice timesave to have when working with
     # larger datasets
     all_idxs_for_users_dict = defaultdict(list)
-    for idx, user in enumerate(users):
-        all_idxs_for_users_dict[user].append(idx)
+
+    if ignore_warning:
+        for idx, user in enumerate(multi_interaction_users):
+            all_idxs_for_users_dict[user].append(idx)
+    else:
+        for idx, user in enumerate(users):
+            all_idxs_for_users_dict[user].append(idx)
 
     if processes == 0:
         test_idxs = [

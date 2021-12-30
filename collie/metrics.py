@@ -277,7 +277,7 @@ def auc(targets: csr_matrix,
 
 
 def evaluate_in_batches(
-    metric_list: Iterable[Callable],
+    metric_list: Iterable[Callable[..., Any]],
     test_interactions: collie.interactions.Interactions,
     model: collie.model.BasePipeline,
     k: int = 10,
@@ -502,7 +502,7 @@ def _get_evaluate_in_batches_device(model: BasePipeline):
 
 def _log_metrics(model: BasePipeline,
                  logger: pytorch_lightning.loggers.base.LightningLoggerBase,
-                 metric_list: List[Union[Callable, Metric]],
+                 metric_list: List[Union[Callable[..., Any], Metric]],
                  all_scores: List[float],
                  verbose: bool):
     try:
