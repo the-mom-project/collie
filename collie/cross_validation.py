@@ -213,13 +213,15 @@ def stratified_split(interactions: BaseInteractions,
     train, test = _stratified_split(interactions=interactions,
                                     test_p=test_p,
                                     processes=processes,
-                                    seed=seed)
+                                    seed=seed,
+                                    ignore_warning=ignore_warning)
 
     if val_p > 0:
         train, validate = _stratified_split(interactions=train,
                                             test_p=val_p / (1 - test_p),
                                             processes=processes,
-                                            seed=seed)
+                                            seed=seed,
+                                            ignore_warning=ignore_warning)
 
         return train, validate, test
     else:
@@ -230,35 +232,24 @@ def _stratified_split(interactions: BaseInteractions,
                       test_p: float,
                       processes: int,
                       seed: int,
-                      ignore_warning: bool = False) -> Tuple[Interactions, Interactions]:
+                      ignore_warning: bool) -> Tuple[Interactions, Interactions]:
     users = interactions.mat.row
     unique_users = set(users)
-    multi_interaction_users = [user for user in users if users.tolist().count(user) != 1]
 
-    if ignore_warning is False and len(multi_interaction_users) != len(users):
-        raise ValueError(
-            'Unable to straify split on users. The ``interactions`` object contains users '
-            'with only one interaction, consider running '
-            '``collie.utils.remove_users_with_fewer_than_n_interactions`` first.'
-        )
     # while we should be able to run ``np.where(users == user)[0]`` to find all items each user
     # interacted with, by building up a dictionary to get these values instead, we can achieve the
     # same result in O(N) complexity rather than O(M * N), a nice timesave to have when working with
     # larger datasets
     all_idxs_for_users_dict = defaultdict(list)
-
-    if ignore_warning:
-        for idx, user in enumerate(multi_interaction_users):
-            all_idxs_for_users_dict[user].append(idx)
-    else:
-        for idx, user in enumerate(users):
-            all_idxs_for_users_dict[user].append(idx)
+    for idx, user in enumerate(users):
+        all_idxs_for_users_dict[user].append(idx)
 
     if processes == 0:
         test_idxs = [
             _stratified_split_parallel_worker(idxs_to_split=all_idxs_for_users_dict[user],
                                               test_p=test_p,
-                                              seed=(seed + user))
+                                              seed=(seed + user),
+                                              ignore_warning=ignore_warning)
             for user in unique_users
         ]
     else:
@@ -269,7 +260,8 @@ def _stratified_split(interactions: BaseInteractions,
         test_idxs = Parallel(n_jobs=processes)(
             delayed(_stratified_split_parallel_worker)(all_idxs_for_users_dict[user],
                                                        test_p,
-                                                       seed + user)
+                                                       seed + user,
+                                                       ignore_warning)
             for user in unique_users
         )
 
@@ -287,12 +279,25 @@ def _stratified_split(interactions: BaseInteractions,
 
 
 def _stratified_split_parallel_worker(idxs_to_split: Iterable[Any],
-                                      test_p: float, seed: int) -> np.array:
-    _, test_idxs = train_test_split(idxs_to_split,
-                                    test_size=test_p,
-                                    random_state=seed,
-                                    shuffle=True,
-                                    stratify=np.ones_like(idxs_to_split))
+                                      test_p: float,
+                                      seed: int,
+                                      ignore_warning: bool) -> np.array:
+    try:
+        _, test_idxs = train_test_split(idxs_to_split,
+                                        test_size=test_p,
+                                        random_state=seed,
+                                        shuffle=True,
+                                        stratify=np.ones_like(idxs_to_split))
+    except ValueError as ve:
+        if 'the resulting train set will be empty' in str(ve):
+            if ignore_warning is False:
+                raise ValueError(
+                    'Unable to straify split on users. The ``interactions`` object contains users '
+                    'with only one interaction, either set ``ignore_warning = True` or run '
+                    '``collie.utils.remove_users_with_fewer_than_n_interactions`` first.'
+                )
+            else: 
+                test_idxs = []
 
     return test_idxs
 
