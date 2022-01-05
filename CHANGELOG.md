@@ -3,6 +3,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project uses [Semantic Versioning](http://semver.org/).
 
+# [1.2.0] - 2022-1-4
+### Added
+ - option to ``ignore_warning`` to ``stratified_split``
+ - better type hints for ``Callable``s
+ - added methods ``get_user_predictions`` and ``user_user_similarity`` to the ``BasePipeline``
+ - added ``_get_user_embeddings`` method to all model classes
+### Changed
+ - default ``Dockerfile`` image to be ``torch@1.10.0`` with CUDA 11.3
+ - check if index is in-bound for ``get_item_predictions`` before calling the model
+ - added ``max_depth`` and ``detect_anomaly`` parameters to ``CollieMinimalTrainer`` and deprecated ``weights_summary`` and ``terminate_on_nan`` to more closely match the new ``pytorch_lightning`` API
+### Fixed
+ - error when user has only one interaction when using ``stratified_split`` 
+### Removed
+ - default ``num_workers`` for Interactions DataLoaders
+
 # [1.1.2] - 2021-8-17
 ### Added
  - string support for Adagrad optimizer in model pipelines
