@@ -14,7 +14,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
  - check if index is in-bound for ``get_item_predictions`` before calling the model
  - added ``max_depth`` and ``detect_anomaly`` parameters to ``CollieMinimalTrainer`` and deprecated ``weights_summary`` and ``terminate_on_nan`` to more closely match the new ``pytorch_lightning`` API
 ### Fixed
- - error when user has only one interaction when using ``stratified_split`` 
+ - error when user has only one interaction when using ``stratified_split``
+ - device error when running metrics for a ``ColdStartModel``
 ### Removed
  - default ``num_workers`` for Interactions DataLoaders
 
