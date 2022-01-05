@@ -218,16 +218,18 @@ class TestEvaluateInBatchesDevice:
 
 
 @pytest.mark.parametrize('batch_size', [20, 2, 1])  # default, uneven, single
+@mock.patch('torch.cuda.is_available')
 @mock.patch('collie.model.MatrixFactorizationModel')
 def test_evaluate_in_batches(
     model,
+    is_available_mock,
     test_implicit_interactions,
     test_implicit_predicted_scores,
     metrics,
     batch_size,
 ):
     model.side_effect = partial(get_model_scores, scores=test_implicit_predicted_scores)
-
+    is_available_mock.return_value = False
     # need to do this for the Mock in order for the metrics to be on the right device
     model.device = 'cpu'
 
@@ -277,15 +279,17 @@ def test_evaluate_in_batches_logger(
     assert logger.step == model.hparams.num_epochs_completed
 
 
+@mock.patch('torch.cuda.is_available')
 @mock.patch('collie.model.MatrixFactorizationModel')
 def test_explicit_evaluate_in_batches(
     model,
+    is_available_mock,
     test_explicit_interactions,
     test_explicit_predicted_scores,
     metrics,
 ):
     model.side_effect = partial(get_model_scores, scores=test_explicit_predicted_scores)
-
+    is_available_mock.return_value = False
     # need to do this for the Mock in order for the metrics to be on the right device
     model.device = 'cpu'
 

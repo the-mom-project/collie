@@ -675,12 +675,13 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             preds = preds.sort_values(ascending=False)
 
         if unseen_items_only:
-            idxs_to_drop = self.train_loader.mat.tocsr()[user_id, :].nonzero()[1]
             if self.val_loader is not None:
                 idxs_to_drop = np.concatenate([
                     self.train_loader.mat.tocsr()[user_id, :].nonzero()[1],
                     self.val_loader.mat.tocsr()[user_id, :].nonzero()[1]
                 ])
+            else:
+                idxs_to_drop = self.train_loader.mat.tocsr()[user_id, :].nonzero()[1]
             filtered_preds = preds.drop(idxs_to_drop)
 
             return filtered_preds

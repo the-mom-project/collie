@@ -296,7 +296,7 @@ def _stratified_split_parallel_worker(idxs_to_split: Iterable[Any],
                     'with only one interaction, either set ``ignore_warning = True` or run '
                     '``collie.utils.remove_users_with_fewer_than_n_interactions`` first.'
                 )
-            else: 
+            else:
                 test_idxs = []
 
     return test_idxs

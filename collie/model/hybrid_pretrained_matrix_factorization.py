@@ -279,7 +279,7 @@ class HybridPretrainedModel(BasePipeline):
 
     def _get_user_embeddings(self) -> torch.tensor:
         """Get user embeddings on device."""
-        return self.user_embeddings.weight.data
+        return self.embeddings[0].weight.data
 
     def freeze_embeddings(self) -> None:
         """Remove gradient requirement from the embeddings."""

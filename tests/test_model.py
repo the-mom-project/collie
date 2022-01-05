@@ -642,6 +642,10 @@ class TestMultiStageModelsCollieMinimalTrainer():
 
         assert item_similarities.index[0] == 42
 
+        user_similarities = model.user_user_similarity(user_id=42)
+
+        assert user_similarities.index[0] == 42
+
     def test_cold_start_model_collie_minimal_trainer(self, train_val_implicit_data):
         train, val = train_val_implicit_data
         item_buckets = torch.randint(low=0, high=5, size=(train.num_items,))
@@ -656,6 +660,12 @@ class TestMultiStageModelsCollieMinimalTrainer():
         # we can't check if the first value in the list matches, but it just shouldn't be the last
         # one
         assert item_similarities.index[-1] != 42
+
+        user_similarities = model.user_user_similarity(user_id=42)
+
+        # we can't check if the first value in the list matches, but it just shouldn't be the last
+        # one
+        assert user_similarities.index[-1] != 42
 
 
 def test_model_instantiation_no_train_data():
@@ -758,6 +768,17 @@ def test_explicit_model(explicit_model,
 
     item_similarities = model.item_item_similarity(item_id=42)
     assert item_similarities.index[0] == 42
+
+    user_preds = model.get_user_predictions(item_id=0,
+                                            unseen_users_only=True,
+                                            sort_values=True)
+
+    assert isinstance(user_preds, pd.Series)
+    assert len(user_preds) > 0
+    assert len(user_preds) < len(train)
+
+    user_similarities = model.user_user_similarity(user_id=42)
+    assert user_similarities.index[0] == 42
 
     mse_score = explicit_evaluate_in_batches([torchmetrics.MeanSquaredError()],
                                              val,
@@ -1003,7 +1024,8 @@ def test_loading_and_saving_implicit_model(train_val_implicit_data,
     train, val = train_val_implicit_data
     implicit_model = MatrixFactorizationModel(train=train, val=val)
 
-    expected = implicit_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_preds_expected = implicit_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_preds_expected = implicit_model.get_user_predictions(item_id=42, unseen_users_only=False)
 
     # set up TemporaryDirectory for writing and reading all files in this test
     temp_dir_name = str(tmpdir)
@@ -1012,14 +1034,30 @@ def test_loading_and_saving_implicit_model(train_val_implicit_data,
     implicit_model.save_model(save_model_path)
     loaded_implicit_model = MatrixFactorizationModel(load_model_path=save_model_path)
 
-    actual = loaded_implicit_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_preds_actual = loaded_implicit_model.get_item_predictions(
+        user_id=42,
+        unseen_items_only=False
+    )
+    user_preds_actual = loaded_implicit_model.get_user_predictions(
+        item_id=42,
+        unseen_users_only=False
+    )
 
-    assert expected.equals(actual)
+    assert item_preds_expected.equals(item_preds_actual)
+    assert user_preds_expected.equals(user_preds_actual)
 
     # now, test that this is not equal to a randomly initialized model's output
-    new_preds = untrained_implicit_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_new_preds = untrained_implicit_model.get_item_predictions(
+        user_id=42,
+        unseen_items_only=False
+    )
+    user_new_preds = untrained_implicit_model.get_user_predictions(
+        item_id=42,
+        unseen_users_only=False
+    )
 
-    assert not expected.equals(new_preds)
+    assert not item_preds_expected.equals(item_new_preds)
+    assert not user_preds_expected.equals(user_new_preds)
 
 
 def test_loading_and_saving_hybrid_pretrained_model(movielens_metadata_df,
@@ -1041,7 +1079,8 @@ def test_loading_and_saving_hybrid_pretrained_model(movielens_metadata_df,
                             gpus=int(str(implicit_model.device).startswith('cuda:0')))
     trainer.fit(model)
 
-    expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_preds_expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_preds_expected = model.get_user_predictions(item_id=42, unseen_users_only=False)
 
     # set up TemporaryDirectory for writing and reading the file in this test
     temp_dir_name = str(tmpdir)
@@ -1050,14 +1089,18 @@ def test_loading_and_saving_hybrid_pretrained_model(movielens_metadata_df,
     model.save_model(save_model_path)
     loaded_model = HybridPretrainedModel(load_model_path=save_model_path)
 
-    actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_preds_actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_preds_actual = loaded_model.get_user_predictions(item_id=42, unseen_users_only=False)
 
-    assert expected.equals(actual)
+    assert item_preds_expected.equals(item_preds_actual)
+    assert user_preds_expected.equals(user_preds_actual)
 
     # now, test that this is not equal to a randomly initialized model's output
-    implicit_preds = implicit_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_implicit_preds = implicit_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_implicit_preds = implicit_model.get_user_predictions(item_id=42, unseen_users_only=False)
 
-    assert not expected.equals(implicit_preds)
+    assert not item_preds_expected.equals(item_implicit_preds)
+    assert not user_preds_expected.equals(user_implicit_preds)
 
 
 def test_bad_saving_hybrid_pretrained_model(movielens_metadata_df,
@@ -1099,7 +1142,8 @@ def test_loading_and_saving_cold_start_model(train_val_implicit_data, tmpdir):
     # we have to advance to the final stage so our item embeddings are copied over before saving
     model.advance_stage()
 
-    expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_preds_expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_preds_expected = model.get_user_predictions(item_id=42, unseen_users_only=False)
 
     # set up TemporaryDirectory for writing and reading the file in this test
     temp_dir_name = str(tmpdir)
@@ -1108,9 +1152,11 @@ def test_loading_and_saving_cold_start_model(train_val_implicit_data, tmpdir):
     model.save_model(save_model_path)
     loaded_model = ColdStartModel(load_model_path=save_model_path)
 
-    actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_preds_actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_preds_actual = loaded_model.get_user_predictions(item_id=42, unseen_users_only=False)
 
-    assert expected.equals(actual)
+    assert item_preds_expected.equals(item_preds_actual)
+    assert user_preds_expected.equals(user_preds_actual)
 
     assert loaded_model.hparams.stage == 'no_buckets'
 
@@ -1125,7 +1171,8 @@ def test_loading_and_saving_hybrid_model(movielens_metadata_df, train_val_implic
     trainer = CollieTrainer(model=model, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer.fit(model)
 
-    expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_preds_expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_preds_expected = model.get_user_predictions(item_id=42, unseen_users_only=False)
 
     # set up TemporaryDirectory for writing and reading the file in this test
     temp_dir_name = str(tmpdir)
@@ -1140,9 +1187,11 @@ def test_loading_and_saving_hybrid_model(movielens_metadata_df, train_val_implic
     # ``get_item_predictions`` is the same
     loaded_model.set_stage('matrix_factorization')
 
-    actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_preds_actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_preds_actual = loaded_model.get_user_predictions(item_id=42, unseen_users_only=False)
 
-    assert expected.equals(actual)
+    assert item_preds_expected.equals(item_preds_actual)
+    assert user_preds_expected.equals(user_preds_actual)
 
 
 def test_bad_saving_hybrid_model(movielens_metadata_df, train_val_implicit_data, tmpdir):
@@ -1179,12 +1228,24 @@ def test_implicit_models_trained_for_one_step(models_trained_for_one_step, train
         assert len(item_preds) > 0
         assert len(item_preds) < len(train)
 
+        user_preds = models_trained_for_one_step.get_user_predictions(item_id=0,
+                                                                      unseen_users_only=True,
+                                                                      sort_values=True)
+
+        assert isinstance(user_preds, pd.Series)
+        assert len(user_preds) > 0
+        assert len(user_preds) < len(train)
+
     item_similarities = models_trained_for_one_step.item_item_similarity(item_id=42)
+    user_similarities = models_trained_for_one_step.user_user_similarity(user_id=42)
 
     if not isinstance(models_trained_for_one_step, ColdStartModel):
         # cold start models aren't trained enough for this check to be true
         assert item_similarities.index[0] == 42
         assert round(item_similarities.values[0], 1) == 1
+
+        assert user_similarities.index[0] == 42
+        assert round(user_similarities.values[0], 1) == 1
     else:
         # ensure ``item_bucket_item_similarity`` works for cold start models
         item_bucket_similarities = (
@@ -1206,12 +1267,24 @@ def test_explicit_models_trained_for_one_step(explicit_models_trained_for_one_st
     assert len(item_preds) > 0
     assert len(item_preds) < len(train)
 
+    user_preds = explicit_models_trained_for_one_step.get_user_predictions(item_id=0,
+                                                                           unseen_users_only=True,
+                                                                           sort_values=True)
+
+    assert isinstance(user_preds, pd.Series)
+    assert len(user_preds) > 0
+    assert len(user_preds) < len(train)
+
     item_similarities = explicit_models_trained_for_one_step.item_item_similarity(item_id=42)
+    user_similarities = explicit_models_trained_for_one_step.user_user_similarity(user_id=42)
 
     if not isinstance(explicit_models_trained_for_one_step, ColdStartModel):
         # cold start models aren't trained enough for this check to be true
         assert item_similarities.index[0] == 42
         assert round(item_similarities.values[0], 1) == 1
+
+        assert user_similarities.index[0] == 42
+        assert round(user_similarities.values[0], 1) == 1
     else:
         # ensure ``item_bucket_item_similarity`` works for cold start models
         item_bucket_similarities = (
