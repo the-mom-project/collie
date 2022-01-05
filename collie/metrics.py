@@ -353,6 +353,7 @@ def evaluate_in_batches(
 
     device = _get_evaluate_in_batches_device(model=model)
     model.to(device)
+    model._move_any_external_data_to_device()
 
     test_users = np.unique(test_interactions.mat.row)
     targets = test_interactions.mat.tocsr()
@@ -455,6 +456,7 @@ def explicit_evaluate_in_batches(
     try:
         device = _get_evaluate_in_batches_device(model=model)
         model.to(device)
+        model._move_any_external_data_to_device()
 
         test_loader = InteractionsDataLoader(interactions=test_interactions,
                                              **kwargs)
@@ -492,10 +494,13 @@ def explicit_evaluate_in_batches(
 
 
 def _get_evaluate_in_batches_device(model: BasePipeline):
-    device = getattr(model, 'device') or ('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = getattr(model, 'device', None)
 
-    if torch.cuda.is_available() and getattr(model, 'device') == 'cpu':
+    if torch.cuda.is_available() and str(device) == 'cpu':
         warnings.warn('CUDA available but model device is set to CPU - is this desired?')
+
+    if device is None:
+        device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
     return device
 

@@ -413,6 +413,7 @@ class CollieMinimalTrainer():
 
         # move the model over to the device
         model.to(self.device)
+        model._move_any_external_data_to_device()
 
     def _initialize_optimizers_and_lr_schedulers(self, model: BasePipeline) -> None:
         self.lr_scheduler = None
