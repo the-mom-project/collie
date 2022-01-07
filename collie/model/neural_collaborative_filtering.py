@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Callable, Dict, Optional, Union
 
 import torch
 from torch import nn
@@ -88,7 +88,7 @@ class NeuralCollaborativeFiltering(BasePipeline):
                  val: INTERACTIONS_LIKE_INPUT = None,
                  embedding_dim: int = 8,
                  num_layers: int = 3,
-                 final_layer: Optional[Union[str, Callable[..., Any]]] = None,
+                 final_layer: Optional[Union[str, Callable[[torch.tensor], torch.tensor]]] = None,
                  dropout_p: float = 0.0,
                  lr: float = 1e-3,
                  lr_scheduler_func: Optional[torch.optim.lr_scheduler._LRScheduler] = partial(

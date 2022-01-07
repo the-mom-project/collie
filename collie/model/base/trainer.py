@@ -5,7 +5,7 @@ import warnings
 from pytorch_lightning import Trainer
 try:
     from pytorch_lightning.utilities.model_summary import ModelSummary
-except ImportError:
+except ImportError:  # compatible with old ``ModelSummary`` API used in versions prior to ``1.6``
     from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.loggers.base import LightningLoggerBase
 from pytorch_lightning.utilities.apply_func import move_data_to_device
@@ -179,9 +179,14 @@ class CollieMinimalTrainer():
     weights_summary: str
         Deprecated, replaced with ``max_depth``. Prints summary of the weights when training begins
     detect_anomaly: bool
-        Enable anomaly detection for the autograd engine.
+        Context-manager that enable anomaly detection for the autograd engine. This does two things:
+
+        * Running the forward pass with detection enabled will allow the backward pass to print the
+          traceback of the forward operation that created the failing backward function.
+
+        * Any backward computation that generate “nan” value will raise an error.
     terminate_on_nan: bool
-        Deprecated. Replaced with ``detect_anomaly``. If set to ``True``, will terminate training
+        Deprecated, replaced with ``detect_anomaly``. If set to ``True``, will terminate training
         (by raising a ``ValueError``) at the end of each training batch, if any of the parameters
         or the loss are NaN or +/- infinity
     benchmark: bool
@@ -233,15 +238,17 @@ class CollieMinimalTrainer():
             verbosity = 0
 
         if weights_summary is not None:
-            warnings.warn('``weights_summary`` is deprecated and was replaced with ``max_depth``.',
-                          DeprecationWarning)
+            warnings.warn(
+                '``weights_summary`` is deprecated and is replaced with ``max_depth``.',
+                DeprecationWarning
+            )
 
         if terminate_on_nan is not None:
             warnings.warn(
-                '``terminate_on_nan`` is deprecated and was replaced with ``detect_anomaly``.',
+                '``terminate_on_nan`` is deprecated and is replaced with ``detect_anomaly``.',
                 DeprecationWarning
             )
-            if not detect_anomaly:
+            if detect_anomaly is False:
                 detect_anomaly = terminate_on_nan
 
         self.max_epochs = max_epochs
@@ -317,16 +324,6 @@ class CollieMinimalTrainer():
             self._fit(model)
 
     def _fit(self, model: BasePipeline) -> None:
-        """
-        Runs the full optimization routine.
-
-        Parameters
-        ----------
-        model: collie.model.BasePipeline
-            Initialized Collie model
-
-        """
-
         # set up top-level epoch progress bar
         epoch_iterator = range(self.num_epochs_completed + 1, self.max_epochs + 1)
         if self.verbosity >= 2:

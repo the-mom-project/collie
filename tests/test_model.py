@@ -461,7 +461,7 @@ class TestCollieMinimalTrainer():
 
         with pytest.warns(
             DeprecationWarning,
-            match=r"``terminate_on_nan`` is deprecated and was replaced with ``detect_anomaly``."
+            match='``terminate_on_nan`` is deprecated and is replaced with ``detect_anomaly``.'
         ):
             trainer = CollieMinimalTrainer(model=model, terminate_on_nan=True)
 
@@ -469,24 +469,33 @@ class TestCollieMinimalTrainer():
 
     def test_detect_anomaly(self,
                             train_val_implicit_sample_data):
+        # create a tensor of ``nan``s as the loss to trigger anomaly detection
         def bad_loss(*args, **kwargs):
             return torch.tensor(0.0, requires_grad=True) * torch.tensor(float('nan'))
 
         train, val = train_val_implicit_sample_data
-        model1 = MatrixFactorizationModel(train=train, val=val, loss=bad_loss)
-        trainer1 = CollieMinimalTrainer(model=model1, detect_anomaly=False, max_epochs=1)
+        model_no_detect_anomaly = MatrixFactorizationModel(train=train, val=val, loss=bad_loss)
+        trainer_no_detect_anomaly = CollieMinimalTrainer(
+            model=model_no_detect_anomaly,
+            detect_anomaly=False,
+            max_epochs=1
+        )
 
-        trainer1.fit(model1)
+        trainer_no_detect_anomaly.fit(model_no_detect_anomaly)
 
-        model2 = MatrixFactorizationModel(train=train, val=val, loss=bad_loss)
-        trainer2 = CollieMinimalTrainer(model=model2, detect_anomaly=True, max_epochs=1)
+        model_with_detect_anomaly = MatrixFactorizationModel(train=train, val=val, loss=bad_loss)
+        trainer_with_detect_anomaly = CollieMinimalTrainer(
+            model=model_with_detect_anomaly,
+            detect_anomaly=True,
+            max_epochs=1
+        )
 
-        with pytest.raises(RuntimeError, match=r"returned nan values in its 0th output."):
+        with pytest.raises(RuntimeError, match='returned nan values in its 0th output.'):
             with pytest.warns(
                 UserWarning,
-                match=r".*Error detected in.* Traceback of forward call that caused the error.*"
+                match=r'.*Error detected in.* Traceback of forward call that caused the error.*'
             ):
-                trainer2.fit(model2)
+                trainer_with_detect_anomaly.fit(model_with_detect_anomaly)
 
     def test_multiple_optimizers_and_lr_schedulers(self, train_val_implicit_sample_data):
         train, val = train_val_implicit_sample_data
@@ -573,7 +582,7 @@ class TestCollieMinimalTrainer():
 
         with pytest.warns(
             DeprecationWarning,
-            match=r'``weights_summary`` is deprecated and was replaced with ``max_depth``.'
+            match='``weights_summary`` is deprecated and is replaced with ``max_depth``.'
         ):
             CollieMinimalTrainer(model=model,
                                  max_epochs=1,
@@ -1184,7 +1193,7 @@ def test_loading_and_saving_hybrid_model(movielens_metadata_df, train_val_implic
     assert loaded_model.hparams.stage == 'all'
 
     # set the stage of the loaded in model to be the same as the saved model so
-    # ``get_item_predictions`` is the same
+    # ``get_item_predictions`` and ``get_user_predictions`` are the same
     loaded_model.set_stage('matrix_factorization')
 
     item_preds_actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
@@ -1334,13 +1343,14 @@ def test_bad_explicit_model_implicit_data(train_val_implicit_sample_data):
 def test_get_item_preds_err(implicit_model,
                             train_val_implicit_data):
     model = implicit_model
-    train, val = train_val_implicit_data
+    train, _ = train_val_implicit_data
 
     with pytest.raises(
         ValueError,
-        match=f'``user_id`` 11111 is not in the model. Expected id between 0 and {train.num_users}'
+        match=f'``user_id`` {train.num_users + 1} is not in the model. '
+              f'Expected ID between ``0`` and ``self.hparams.num_users``, {train.num_users}'
     ):
-        model.get_item_predictions(user_id=11111,
+        model.get_item_predictions(user_id=train.num_users + 1,
                                    unseen_items_only=True,
                                    sort_values=True)
 
@@ -1348,12 +1358,13 @@ def test_get_item_preds_err(implicit_model,
 def test_get_user_preds_err(implicit_model,
                             train_val_implicit_data):
     model = implicit_model
-    train, val = train_val_implicit_data
+    train, _ = train_val_implicit_data
 
     with pytest.raises(
         ValueError,
-        match=f'``item_id`` 11111 is not in the model. Expected id between 0 and {train.num_items}'
+        match=f'``item_id`` {train.num_items + 1} is not in the model. '
+              f'Expected ID between ``0`` and ``self.hparams.num_items``, {train.num_items}'
     ):
-        model.get_user_predictions(item_id=11111,
+        model.get_user_predictions(item_id=train.num_items + 1,
                                    unseen_users_only=True,
                                    sort_values=True)

@@ -318,9 +318,11 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             raise ValueError('{} is not a valid loss function.'.format(self.loss))
 
     def configure_optimizers(self) -> (
-        Union[Tuple[List[torch.optim.Optimizer], List[torch.optim.Optimizer]],
-              Tuple[torch.optim.Optimizer, torch.optim.Optimizer],
-              torch.optim.Optimizer]
+        Union[
+            Tuple[List[torch.optim.Optimizer], List[torch.optim.Optimizer]],
+            Tuple[torch.optim.Optimizer, torch.optim.Optimizer],
+            torch.optim.Optimizer,
+        ]
     ):
         """
         Configure optimizers and learning rate schedulers to use in optimization.
@@ -658,7 +660,8 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         if user_id > self.hparams.num_users:
             raise ValueError(
                 f'``user_id`` {user_id} is not in the model. '
-                f'Expected id between 0 and {self.hparams.num_users}'
+                'Expected ID between ``0`` and ``self.hparams.num_users``, '
+                f'{self.hparams.num_users}'
             )
 
         user = torch.tensor(
@@ -687,51 +690,6 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             return filtered_preds
         else:
             return preds
-
-    def item_item_similarity(self, item_id: int) -> pd.Series:
-        """
-        Get most similar item indices by cosine similarity.
-
-        Cosine similarity is computed with item embeddings from a trained model.
-
-        Parameters
-        ----------
-        item_id: int
-
-        Returns
-        -------
-        sim_score_idxs: pd.Series
-            Sorted values as cosine similarity for each item in the dataset with the index being
-            the item ID
-
-        Note
-        ----
-        Returned array is unfiltered, so the first element, being the most similar item, will
-        always be the item itself.
-
-        """
-        item_embeddings = self._get_item_embeddings()
-        item_embeddings = item_embeddings / item_embeddings.norm(dim=1)[:, None]
-
-        sim_score_idxs = (
-            torch.matmul(item_embeddings[[item_id], :], item_embeddings.transpose(1, 0))
-            .detach()
-            .cpu()
-            .numpy()
-            .squeeze()
-        )
-
-        sim_score_idxs_series = pd.Series(sim_score_idxs)
-        sim_score_idxs_series = sim_score_idxs_series.sort_values(ascending=False)
-
-        return sim_score_idxs_series
-
-    def _get_item_embeddings(self) -> torch.tensor:
-        """``_get_item_embeddings`` should be implemented in all subclasses."""
-        raise NotImplementedError(
-            '``BasePipeline`` is meant to be inherited from, not used. '
-            '``_get_item_embeddings`` is not implemented in this subclass.'
-        )
 
     def get_user_predictions(self,
                              item_id: int = 0,
@@ -767,7 +725,8 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         if item_id > self.hparams.num_items:
             raise ValueError(
                 f'``item_id`` {item_id} is not in the model. '
-                f'Expected id between 0 and {self.hparams.num_items}'
+                'Expected ID between ``0`` and ``self.hparams.num_items``, '
+                f'{self.hparams.num_items}'
             )
 
         item = torch.tensor(
@@ -797,6 +756,35 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         else:
             return preds
 
+    def item_item_similarity(self, item_id: int) -> pd.Series:
+        """
+        Get most similar item indices by cosine similarity.
+
+        Cosine similarity is computed with item embeddings from a trained model.
+
+        Parameters
+        ----------
+        item_id: int
+
+        Returns
+        -------
+        sim_score_idxs: pd.Series
+            Sorted values as cosine similarity for each item in the dataset with the index being
+            the item ID
+
+        Note
+        ----
+        Returned array is unfiltered, so the first element, being the most similar item, will
+        always be the item itself.
+
+        """
+        item_embeddings = self._get_item_embeddings()
+        item_embeddings = item_embeddings / item_embeddings.norm(dim=1)[:, None]
+
+        sim_score_idxs_series = self._similarity(embeddings=item_embeddings, id=item_id)
+
+        return sim_score_idxs_series
+
     def user_user_similarity(self, user_id: int) -> pd.Series:
         """
         User counterpart to ``item_item_similarity`` method.
@@ -823,8 +811,13 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         user_embeddings = self._get_user_embeddings()
         user_embeddings = user_embeddings / user_embeddings.norm(dim=1)[:, None]
 
+        sim_score_idxs_series = self._similarity(embeddings=user_embeddings, id=user_id)
+
+        return sim_score_idxs_series
+
+    def _similarity(self, embeddings, id: int) -> pd.Series:
         sim_score_idxs = (
-            torch.matmul(user_embeddings[[user_id], :], user_embeddings.transpose(1, 0))
+            torch.matmul(embeddings[[id], :], embeddings.transpose(1, 0))
             .detach()
             .cpu()
             .numpy()
@@ -835,6 +828,13 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         sim_score_idxs_series = sim_score_idxs_series.sort_values(ascending=False)
 
         return sim_score_idxs_series
+
+    def _get_item_embeddings(self) -> torch.tensor:
+        """``_get_item_embeddings`` should be implemented in all subclasses."""
+        raise NotImplementedError(
+            '``BasePipeline`` is meant to be inherited from, not used. '
+            '``_get_item_embeddings`` is not implemented in this subclass.'
+        )
 
     def _get_user_embeddings(self) -> torch.tensor:
         """``_get_user_embeddings`` should be implemented in all subclasses."""

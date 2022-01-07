@@ -13,11 +13,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
  - default ``Dockerfile`` image to be ``torch@1.10.0`` with CUDA 11.3
  - check if index is in-bound for ``get_item_predictions`` before calling the model
  - added ``max_depth`` and ``detect_anomaly`` parameters to ``CollieMinimalTrainer`` and deprecated ``weights_summary`` and ``terminate_on_nan`` to more closely match the new ``pytorch_lightning`` API
+ - clarified error message when user has a single interaction when using ``stratified_split``
+ - updated all examples, tests, and notebooks with post-1.5.0 PyTorch Lightning APIs
 ### Fixed
- - error when user has only one interaction when using ``stratified_split``
- - device error when running metrics for a ``ColdStartModel``
+ - device error when running metrics for a ``MultiStagePipeline `` models
+ - ``CollieMinimalTrainer`` model summary to work with later versions of PyTorch Lightning
 ### Removed
- - default ``num_workers`` for Interactions DataLoaders
+ - default ``num_workers`` for ``Interactions`` DataLoaders
 
 # [1.1.2] - 2021-8-17
 ### Added

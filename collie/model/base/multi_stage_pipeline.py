@@ -184,9 +184,11 @@ class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
         return optimizer_parameters
 
     def configure_optimizers(self) -> (
-        Union[Tuple[List[torch.optim.Optimizer], List[torch.optim.Optimizer]],
-              Tuple[torch.optim.Optimizer, torch.optim.Optimizer],
-              torch.optim.Optimizer]
+        Union[
+            Tuple[List[torch.optim.Optimizer], List[torch.optim.Optimizer]],
+            Tuple[torch.optim.Optimizer, torch.optim.Optimizer],
+            torch.optim.Optimizer
+        ]
     ):
         """
         Configure optimizers and learning rate schedulers to use in optimization.

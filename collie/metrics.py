@@ -277,7 +277,10 @@ def auc(targets: csr_matrix,
 
 
 def evaluate_in_batches(
-    metric_list: Iterable[Callable[..., Any]],
+    metric_list: Iterable[Callable[
+        [csr_matrix, Union[np.array, torch.tensor], Union[np.array, torch.tensor], Optional[int]],
+        float
+    ]],
     test_interactions: collie.interactions.Interactions,
     model: collie.model.BasePipeline,
     k: int = 10,
@@ -500,7 +503,14 @@ def _get_evaluate_in_batches_device(model: BasePipeline):
         warnings.warn('CUDA available but model device is set to CPU - is this desired?')
 
     if device is None:
-        device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+        if torch.cuda.is_available():
+            warnings.warn(
+                '``model.device`` attribute is ``None``. Since GPU is available, putting model on '
+                'GPU.'
+            )
+            device = 'cuda:0'
+        else:
+            device = 'cpu'
 
     return device
 

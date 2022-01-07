@@ -359,6 +359,7 @@ class HybridModel(MultiStagePipeline):
 
     def _get_user_embeddings(self) -> torch.tensor:
         """Get user embeddings on device."""
+        # TODO: update this to get the embeddings post-MLP
         return self.user_embeddings.weight.data
 
     def save_model(self,

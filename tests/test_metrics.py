@@ -200,7 +200,7 @@ class TestEvaluateInBatchesDevice:
         is_available_mock.return_value = True
         model.device = None
 
-        with pytest.warns(None):  # assert no warning is raised here
+        with pytest.warns(UserWarning):
             device = _get_evaluate_in_batches_device(model=model)
 
         assert device == 'cuda:0'
