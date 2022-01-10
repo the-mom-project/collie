@@ -176,6 +176,8 @@ class CollieMinimalTrainer():
     max_depth: int
         Maximum depth of modules to show, use -1 to show all modules or 0 to show no summary.
         Related to PyTorch Lightning's ``Trainer.enable_model_summary`` argument.
+    enable_model_summary: bool
+        Whether to enable or disable the model summarization. Defaults to True.
     weights_summary: str
         Deprecated, replaced with ``max_depth``. Prints summary of the weights when training begins
     detect_anomaly: bool
@@ -185,6 +187,8 @@ class CollieMinimalTrainer():
           traceback of the forward operation that created the failing backward function.
 
         * Any backward computation that generate “nan” value will raise an error.
+        Warning: This mode should be enabled only for debugging as the different tests will slow
+        down your program execution.
     terminate_on_nan: bool
         Deprecated, replaced with ``detect_anomaly``. If set to ``True``, will terminate training
         (by raising a ``ValueError``) at the end of each training batch, if any of the parameters
@@ -213,7 +217,7 @@ class CollieMinimalTrainer():
                  early_stopping_patience: Optional[int] = 3,
                  log_every_n_steps: int = 50,
                  flush_logs_every_n_steps: int = 100,
-                 max_depth: int = 1,
+                 enable_model_summary: bool = True,
                  weights_summary: Optional[str] = None,
                  detect_anomaly: bool = False,
                  terminate_on_nan: Optional[bool] = None,
@@ -239,7 +243,7 @@ class CollieMinimalTrainer():
 
         if weights_summary is not None:
             warnings.warn(
-                '``weights_summary`` is deprecated and is replaced with ``max_depth``.',
+                '``weights_summary`` is deprecated and is replaced with ``enable_model_summary``.',
                 DeprecationWarning
             )
 
@@ -259,7 +263,7 @@ class CollieMinimalTrainer():
         self.early_stopping_patience = early_stopping_patience
         self.log_every_n_steps = log_every_n_steps
         self.flush_logs_every_n_steps = flush_logs_every_n_steps
-        self.max_depth = max_depth
+        self.enable_model_summary = enable_model_summary
         self.weights_summary = weights_summary
         self.detect_anomaly = detect_anomaly
         self.terminate_on_nan = terminate_on_nan
@@ -396,9 +400,11 @@ class CollieMinimalTrainer():
         self.train_dataloader = model.train_dataloader()
         self.val_dataloader = model.val_dataloader()
 
-        if self.verbosity != 0 and (self.weights_summary is not None or self.max_depth != 0):
+        if self.verbosity != 0 and (
+            self.weights_summary is not None or self.enable_model_summary is True
+        ):
             try:
-                print(ModelSummary(model, max_depth=self.max_depth))
+                print(ModelSummary(model, max_depth=int(self.enable_model_summary)))
             except TypeError:
                 # compatible with old ``ModelSummary`` API used in versions prior to ``1.6``
                 print(ModelSummary(model, mode=self.weights_summary))

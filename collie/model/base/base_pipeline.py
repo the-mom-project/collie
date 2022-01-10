@@ -44,6 +44,10 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
     * ``_get_item_embeddings`` - Returns item embeddings from the model on the device
 
+    For ``user_user_similarity`` to work properly, all subclasses are should also implement:
+
+    * ``_get_user_embeddings`` - Returns user embeddings from the model on the device
+
     Parameters
     ----------
     train: ``collie.interactions`` object

@@ -269,32 +269,7 @@ def test_stratified_split_with_users_with_only_one_interaction_raises_error(
 def test_stratified_split_with_users_with_only_one_interaction_force_split(
     interactions_to_split_with_users_with_only_one_interaction,
 ):
-    # users_with_only_one_interaction = pd.DataFrame(
-    #     data={
-    #         'user_id': [0, 5, 6],
-    #         'item_id': [0, 0, 1],
-    #         'rating': [1, 3, 2],
-    #     }
-    # )
-    train_expected_df = pd.DataFrame(
-        data={
-            'user_id': [0, 1, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6],
-            'item_id': [0, 2, 3, 4, 6, 8, 3, 4, 1, 2, 1, 5, 0, 1],
-            'rating': [1, 3, 4, 5, 3, 1, 3, 4, 1, 3, 2, 4, 3 ,2],
-        }
-    )
-    train_expected = Interactions(
-        mat=coo_matrix(
-            (
-                train_expected_df['rating'],
-                (train_expected_df['user_id'], train_expected_df['item_id']),
-            ),
-            shape=(interactions_to_split_with_users_with_only_one_interaction.num_users,
-                   interactions_to_split_with_users_with_only_one_interaction.num_items),
-        ),
-        allow_missing_ids=True,
-        check_num_negative_samples_is_valid=False,
-    )
+    users_with_only_one_interaction = [0, 5, 6]
 
     (train_actual, _, _) = stratified_split(
         interactions=interactions_to_split_with_users_with_only_one_interaction,
@@ -304,7 +279,7 @@ def test_stratified_split_with_users_with_only_one_interaction_force_split(
         force_split=True
     )
 
-    np.testing.assert_array_equal(train_actual.toarray(), train_expected.toarray())
+    assert all(user in train_actual[:][0][0].tolist() for user in users_with_only_one_interaction)
 
 
 class TestSplitsWithWrongP:

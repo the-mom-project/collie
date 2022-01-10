@@ -568,7 +568,7 @@ class TestCollieMinimalTrainer():
                                          val=val)
         trainer = CollieMinimalTrainer(model=model,
                                        max_epochs=1,
-                                       max_depth=-1,
+                                       enable_model_summary=True,
                                        verbosity=verbosity)
         trainer.fit(model)
 
@@ -582,11 +582,37 @@ class TestCollieMinimalTrainer():
 
         with pytest.warns(
             DeprecationWarning,
-            match='``weights_summary`` is deprecated and is replaced with ``max_depth``.'
+            match='``weights_summary`` is deprecated and is replaced with ``enable_model_summary``.'
         ):
             CollieMinimalTrainer(model=model,
                                  max_epochs=1,
                                  weights_summary='full')
+
+    def test_enable_model_summary(self,
+                                  train_val_implicit_sample_data,
+                                  capsys):
+        train, val = train_val_implicit_sample_data
+        model = MatrixFactorizationModel(train=train, val=val)
+
+        enable_model_summary_trainer = CollieMinimalTrainer(model=model,
+                                                            max_epochs=1,
+                                                            enable_model_summary=True)
+
+        enable_model_summary_trainer.fit(model)
+
+        enable_model_summary_out, _ = capsys.readouterr()
+
+        assert '| Name            | Type            | Params' in enable_model_summary_out
+
+        disable_model_summary_trainer = CollieMinimalTrainer(model=model,
+                                                             max_epochs=1,
+                                                             enable_model_summary=False)
+
+        disable_model_summary_trainer.fit(model)
+
+        disable_model_summary_out, _ = capsys.readouterr()
+
+        assert '| Name            | Type            | Params' not in disable_model_summary_out
 
     def test_unexpected_batch_format(self, train_val_implicit_sample_data):
         train, val = train_val_implicit_sample_data
