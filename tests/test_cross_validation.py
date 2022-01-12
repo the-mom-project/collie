@@ -253,8 +253,8 @@ def test_stratified_split_with_users_with_only_one_interaction_raises_error(
 ):
     with pytest.raises(
         ValueError,
-        match='Unable to stratify split on users. The ``interactions`` object contains users '
-              'with a single interaction, either set ``force_split = True`` to put all users '
+        match='Unable to stratify split on users - the ``interactions`` object contains users '
+              'with a single interaction. Either set ``force_split = True`` to put all users '
               'with a single interaction in the training set or run '
               '``collie.utils.remove_users_with_fewer_than_n_interactions`` first.'
     ):

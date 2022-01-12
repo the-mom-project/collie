@@ -14,7 +14,7 @@ from collie.interactions import ExplicitInteractions, Interactions, Interactions
 from collie.model import BasePipeline
 
 
-def _get_user_item_pairs(user_ids: (np.array, torch.tensor),
+def _get_user_item_pairs(user_ids: Union[np.array, torch.tensor],
                          n_items: int,
                          device: Union[str, torch.device]) -> Tuple[torch.tensor, torch.tensor]:
     """
@@ -72,7 +72,7 @@ def _get_user_item_pairs(user_ids: (np.array, torch.tensor),
 
 
 def get_preds(model: BasePipeline,
-              user_ids: (np.array, torch.tensor),
+              user_ids: Union[np.array, torch.tensor],
               n_items: int,
               device: Union[str, torch.device]) -> torch.tensor:
     """
@@ -105,8 +105,8 @@ def get_preds(model: BasePipeline,
 
 
 def _get_labels(targets: csr_matrix,
-                user_ids: (np.array, torch.tensor),
-                preds: (np.array, torch.tensor),
+                user_ids: Union[np.array, torch.tensor],
+                preds: Union[np.array, torch.tensor],
                 device: str) -> torch.tensor:
     """
     Returns a binary array indicating which of the recommended products are in each user's target
@@ -139,8 +139,8 @@ def _get_labels(targets: csr_matrix,
 
 
 def mapk(targets: csr_matrix,
-         user_ids: (np.array, torch.tensor),
-         preds: (np.array, torch.tensor),
+         user_ids: Union[np.array, torch.tensor],
+         preds: Union[np.array, torch.tensor],
          k: int = 10) -> float:
     """
     Calculate the mean average precision at K (MAP@K) score for each user.
@@ -196,8 +196,8 @@ def mapk(targets: csr_matrix,
 
 
 def mrr(targets: csr_matrix,
-        user_ids: (np.array, torch.tensor),
-        preds: (np.array, torch.tensor),
+        user_ids: Union[np.array, torch.tensor],
+        preds: Union[np.array, torch.tensor],
         k: Optional[Any] = None) -> float:
     """
     Calculate the mean reciprocal rank (MRR) of the input predictions.
@@ -238,8 +238,8 @@ def mrr(targets: csr_matrix,
 
 
 def auc(targets: csr_matrix,
-        user_ids: (np.array, torch.tensor),
-        preds: (np.array, torch.tensor),
+        user_ids: Union[np.array, torch.tensor],
+        preds: Union[np.array, torch.tensor],
         k: Optional[Any] = None) -> float:
     """
     Calculate the area under the ROC curve (AUC) for each user and average the results.

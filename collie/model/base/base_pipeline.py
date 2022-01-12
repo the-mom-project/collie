@@ -664,8 +664,8 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         if user_id > self.hparams.num_users:
             raise ValueError(
                 f'``user_id`` {user_id} is not in the model. '
-                'Expected ID between ``0`` and ``self.hparams.num_users``, '
-                f'{self.hparams.num_users}'
+                'Expected ID between ``0`` and ``self.hparams.num_users`` '
+                f'({self.hparams.num_users}), not {user_id}'
             )
 
         user = torch.tensor(
@@ -729,8 +729,8 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         if item_id > self.hparams.num_items:
             raise ValueError(
                 f'``item_id`` {item_id} is not in the model. '
-                'Expected ID between ``0`` and ``self.hparams.num_items``, '
-                f'{self.hparams.num_items}'
+                'Expected ID between ``0`` and ``self.hparams.num_items`` '
+                f'({self.hparams.num_items}), not {item_id}'
             )
 
         item = torch.tensor(
@@ -785,7 +785,10 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         item_embeddings = self._get_item_embeddings()
         item_embeddings = item_embeddings / item_embeddings.norm(dim=1)[:, None]
 
-        sim_score_idxs_series = self._similarity(embeddings=item_embeddings, id=item_id)
+        sim_score_idxs_series = self._calculate_embedding_similarity(
+            embeddings=item_embeddings,
+            id=item_id
+        )
 
         return sim_score_idxs_series
 
@@ -815,23 +818,21 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         user_embeddings = self._get_user_embeddings()
         user_embeddings = user_embeddings / user_embeddings.norm(dim=1)[:, None]
 
-        sim_score_idxs_series = self._similarity(embeddings=user_embeddings, id=user_id)
+        sim_score_idxs_series = self._calculate_embedding_similarity(
+            embeddings=user_embeddings,
+            id=user_id
+        )
 
         return sim_score_idxs_series
 
-    def _similarity(self, embeddings, id: int) -> pd.Series:
-        sim_score_idxs = (
+    def _calculate_embedding_similarity(self, embeddings: torch.tensor, id: int) -> pd.Series:
+        return pd.Series(
             torch.matmul(embeddings[[id], :], embeddings.transpose(1, 0))
             .detach()
             .cpu()
             .numpy()
             .squeeze()
-        )
-
-        sim_score_idxs_series = pd.Series(sim_score_idxs)
-        sim_score_idxs_series = sim_score_idxs_series.sort_values(ascending=False)
-
-        return sim_score_idxs_series
+        ).sort_values(ascending=False)
 
     def _get_item_embeddings(self) -> torch.tensor:
         """``_get_item_embeddings`` should be implemented in all subclasses."""

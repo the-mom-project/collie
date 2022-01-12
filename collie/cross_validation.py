@@ -295,10 +295,10 @@ def _stratified_split_parallel_worker(idxs_to_split: Iterable[Any],
         if 'the resulting train set will be empty' in str(ve):
             if force_split is False:
                 raise ValueError(
-                    'Unable to stratify split on users. The ``interactions`` object contains users '
-                    'with a single interaction, either set ``force_split = True`` to put all users '
-                    'with a single interaction in the training set or run '
-                    '``collie.utils.remove_users_with_fewer_than_n_interactions`` first.'
+                    'Unable to stratify split on users - the ``interactions`` object contains users'
+                    ' with a single interaction. Either set ``force_split = True`` to put all users'
+                    ' with a single interaction in the training set or run'
+                    ' ``collie.utils.remove_users_with_fewer_than_n_interactions`` first.'
                 )
             else:
                 test_idxs = []

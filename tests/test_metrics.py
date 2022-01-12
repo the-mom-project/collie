@@ -178,7 +178,10 @@ class TestEvaluateInBatchesDevice:
         is_available_mock.return_value = True
         model.device = 'cpu'
 
-        with pytest.warns(UserWarning):
+        with pytest.warns(
+            UserWarning,
+            match='CUDA available but model device is set to CPU - is this desired?'
+        ):
             device = _get_evaluate_in_batches_device(model=model)
 
         assert device == 'cpu'
@@ -200,7 +203,11 @@ class TestEvaluateInBatchesDevice:
         is_available_mock.return_value = True
         model.device = None
 
-        with pytest.warns(UserWarning):
+        with pytest.warns(
+            UserWarning,
+            match='``model.device`` attribute is ``None``. Since GPU is available, putting model '
+                  'on GPU.'
+        ):
             device = _get_evaluate_in_batches_device(model=model)
 
         assert device == 'cuda:0'

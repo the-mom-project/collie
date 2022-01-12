@@ -16,7 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
  - clarified error message when user has a single interaction when using ``stratified_split``
  - updated all examples, tests, and notebooks with post-1.5.0 PyTorch Lightning APIs
 ### Fixed
- - device error when running metrics for a ``MultiStagePipeline `` models
+ - device error when running metrics for a ``MultiStagePipeline`` models
  - ``CollieMinimalTrainer`` model summary to work with later versions of PyTorch Lightning
 ### Removed
  - default ``num_workers`` for ``Interactions`` DataLoaders

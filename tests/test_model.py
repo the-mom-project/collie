@@ -1371,10 +1371,12 @@ def test_get_item_preds_err(implicit_model,
     model = implicit_model
     train, _ = train_val_implicit_data
 
+    nonexistent_user_id = train.num_users + 1
+
     with pytest.raises(
         ValueError,
-        match=f'``user_id`` {train.num_users + 1} is not in the model. '
-              f'Expected ID between ``0`` and ``self.hparams.num_users``, {train.num_users}'
+        match=fr'``user_id`` {nonexistent_user_id} is not in the model. '
+              fr'Expected ID between ``0`` and ``self.hparams.num_users`` ({train.num_users}), not {nonexistent_user_id}'
     ):
         model.get_item_predictions(user_id=train.num_users + 1,
                                    unseen_items_only=True,
@@ -1386,10 +1388,13 @@ def test_get_user_preds_err(implicit_model,
     model = implicit_model
     train, _ = train_val_implicit_data
 
+    nonexistent_item_id = train.num_items + 1
+
     with pytest.raises(
         ValueError,
-        match=f'``item_id`` {train.num_items + 1} is not in the model. '
-              f'Expected ID between ``0`` and ``self.hparams.num_items``, {train.num_items}'
+        match=fr'``item_id`` {nonexistent_item_id} is not in the model. '
+              fr'Expected ID between ``0`` and ``self.hparams.num_items`` '
+              fr'({train.num_items}), not {nonexistent_item_id}'
     ):
         model.get_user_predictions(item_id=train.num_items + 1,
                                    unseen_users_only=True,

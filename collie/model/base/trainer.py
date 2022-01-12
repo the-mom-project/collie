@@ -5,7 +5,7 @@ import warnings
 from pytorch_lightning import Trainer
 try:
     from pytorch_lightning.utilities.model_summary import ModelSummary
-except ImportError:  # compatible with old ``ModelSummary`` API used in versions prior to ``1.6``
+except ImportError:  # compatible with old ``ModelSummary`` API used in versions prior to ``1.5``
     from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.loggers.base import LightningLoggerBase
 from pytorch_lightning.utilities.apply_func import move_data_to_device
@@ -173,13 +173,11 @@ class CollieMinimalTrainer():
         How often to log within steps, if ``logger`` is enabled
     flush_logs_every_n_steps: int
         How often to flush logs to disk, if ``logger`` is enabled
-    max_depth: int
-        Maximum depth of modules to show, use -1 to show all modules or 0 to show no summary.
-        Related to PyTorch Lightning's ``Trainer.enable_model_summary`` argument.
     enable_model_summary: bool
-        Whether to enable or disable the model summarization. Defaults to True.
+        Whether to enable or disable the model summarization
     weights_summary: str
-        Deprecated, replaced with ``max_depth``. Prints summary of the weights when training begins
+        Deprecated, replaced with ``enable_model_summary``. Prints summary of the weights when
+        training begins
     detect_anomaly: bool
         Context-manager that enable anomaly detection for the autograd engine. This does two things:
 
@@ -187,6 +185,7 @@ class CollieMinimalTrainer():
           traceback of the forward operation that created the failing backward function.
 
         * Any backward computation that generate “nan” value will raise an error.
+
         Warning: This mode should be enabled only for debugging as the different tests will slow
         down your program execution.
     terminate_on_nan: bool
