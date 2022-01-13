@@ -1,5 +1,6 @@
 import copy
 from functools import partial
+import re
 from unittest import mock
 
 import numpy as np
@@ -180,7 +181,7 @@ class TestEvaluateInBatchesDevice:
 
         with pytest.warns(
             UserWarning,
-            match='CUDA available but model device is set to CPU - is this desired?'
+            match=re.escape('CUDA available but model device is set to CPU - is this desired?')
         ):
             device = _get_evaluate_in_batches_device(model=model)
 
@@ -205,8 +206,10 @@ class TestEvaluateInBatchesDevice:
 
         with pytest.warns(
             UserWarning,
-            match='``model.device`` attribute is ``None``. Since GPU is available, putting model '
-                  'on GPU.'
+            match=(
+                '``model.device`` attribute is ``None``. Since GPU is available, putting model on '
+                'GPU.'
+            )
         ):
             device = _get_evaluate_in_batches_device(model=model)
 

@@ -665,7 +665,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             raise ValueError(
                 f'``user_id`` {user_id} is not in the model. '
                 'Expected ID between ``0`` and ``self.hparams.num_users`` '
-                f'({self.hparams.num_users}), not {user_id}'
+                f'(``{self.hparams.num_users}``), not ``{user_id}``'
             )
 
         user = torch.tensor(
@@ -730,7 +730,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             raise ValueError(
                 f'``item_id`` {item_id} is not in the model. '
                 'Expected ID between ``0`` and ``self.hparams.num_items`` '
-                f'({self.hparams.num_items}), not {item_id}'
+                f'(``{self.hparams.num_items}``), not ``{item_id}``'
             )
 
         item = torch.tensor(
@@ -782,15 +782,10 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         always be the item itself.
 
         """
-        item_embeddings = self._get_item_embeddings()
-        item_embeddings = item_embeddings / item_embeddings.norm(dim=1)[:, None]
-
-        sim_score_idxs_series = self._calculate_embedding_similarity(
-            embeddings=item_embeddings,
+        return self._calculate_embedding_similarity(
+            embeddings=self._get_item_embeddings(),
             id=item_id
         )
-
-        return sim_score_idxs_series
 
     def user_user_similarity(self, user_id: int) -> pd.Series:
         """
@@ -815,17 +810,15 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         Returned array is unfiltered, so the first element, being the most similar user, will
         always be the seed user themself.
         """
-        user_embeddings = self._get_user_embeddings()
-        user_embeddings = user_embeddings / user_embeddings.norm(dim=1)[:, None]
-
-        sim_score_idxs_series = self._calculate_embedding_similarity(
-            embeddings=user_embeddings,
+        return self._calculate_embedding_similarity(
+            embeddings=self._get_user_embeddings(),
             id=user_id
         )
 
-        return sim_score_idxs_series
-
     def _calculate_embedding_similarity(self, embeddings: torch.tensor, id: int) -> pd.Series:
+        """Get most similar embedding indices by cosine similarity."""
+        embeddings = embeddings / embeddings.norm(dim=1)[:, None]
+
         return pd.Series(
             torch.matmul(embeddings[[id], :], embeddings.transpose(1, 0))
             .detach()

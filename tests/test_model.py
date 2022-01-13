@@ -1379,7 +1379,7 @@ def test_get_item_preds_err(implicit_model,
         match=re.escape(
             f'``user_id`` {nonexistent_user_id} is not in the model. '
             'Expected ID between ``0`` and ``self.hparams.num_users`` '
-            f'({train.num_users}), not {nonexistent_user_id}'
+            f'(``{train.num_users}``), not ``{nonexistent_user_id}``'
         )
     ):
         model.get_item_predictions(user_id=train.num_users + 1,
@@ -1399,7 +1399,7 @@ def test_get_user_preds_err(implicit_model,
         match=re.escape(
             f'``item_id`` {nonexistent_item_id} is not in the model. '
             'Expected ID between ``0`` and ``self.hparams.num_items`` '
-            f'({train.num_items}), not {nonexistent_item_id}'
+            f'(``{train.num_items}``), not ``{nonexistent_item_id}``'
         )
     ):
         model.get_user_predictions(item_id=train.num_items + 1,
