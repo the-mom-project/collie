@@ -2,6 +2,7 @@ from contextlib import suppress
 import copy
 from functools import partial
 import os
+import re
 from unittest import mock
 
 import pandas as pd
@@ -1375,8 +1376,11 @@ def test_get_item_preds_err(implicit_model,
 
     with pytest.raises(
         ValueError,
-        match=fr'``user_id`` {nonexistent_user_id} is not in the model. '
-              fr'Expected ID between ``0`` and ``self.hparams.num_users`` ({train.num_users}), not {nonexistent_user_id}'
+        match=re.escape(
+            f'``user_id`` {nonexistent_user_id} is not in the model. '
+            'Expected ID between ``0`` and ``self.hparams.num_users`` '
+            f'({train.num_users}), not {nonexistent_user_id}'
+        )
     ):
         model.get_item_predictions(user_id=train.num_users + 1,
                                    unseen_items_only=True,
@@ -1392,9 +1396,11 @@ def test_get_user_preds_err(implicit_model,
 
     with pytest.raises(
         ValueError,
-        match=fr'``item_id`` {nonexistent_item_id} is not in the model. '
-              fr'Expected ID between ``0`` and ``self.hparams.num_items`` '
-              fr'({train.num_items}), not {nonexistent_item_id}'
+        match=re.escape(
+            f'``item_id`` {nonexistent_item_id} is not in the model. '
+            'Expected ID between ``0`` and ``self.hparams.num_items`` '
+            f'({train.num_items}), not {nonexistent_item_id}'
+        )
     ):
         model.get_user_predictions(item_id=train.num_items + 1,
                                    unseen_users_only=True,
