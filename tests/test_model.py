@@ -1405,3 +1405,39 @@ def test_get_user_preds_err(implicit_model,
         model.get_user_predictions(item_id=train.num_items + 1,
                                    unseen_users_only=True,
                                    sort_values=True)
+
+
+def test_item_item_similarity_err(implicit_model,
+                                  train_val_implicit_data):
+    model = implicit_model
+    train, _ = train_val_implicit_data
+
+    nonexistent_item_id = train.num_items + 1
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            f'``item_id`` {nonexistent_item_id} is not in the model. '
+            'Expected ID between ``0`` and ``self.hparams.num_items`` '
+            f'(``{train.num_items}``), not ``{nonexistent_item_id}``'
+        )
+    ):
+        model.item_item_similarity(item_id=train.num_items + 1)
+
+
+def test_user_user_similarity_err(implicit_model,
+                                  train_val_implicit_data):
+    model = implicit_model
+    train, _ = train_val_implicit_data
+
+    nonexistent_user_id = train.num_users + 1
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            f'``user_id`` {nonexistent_user_id} is not in the model. '
+            'Expected ID between ``0`` and ``self.hparams.num_users`` '
+            f'(``{train.num_users}``), not ``{nonexistent_user_id}``'
+        )
+    ):
+        model.user_user_similarity(user_id=train.num_users + 1)

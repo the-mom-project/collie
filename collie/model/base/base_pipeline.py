@@ -782,6 +782,13 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         always be the item itself.
 
         """
+        if item_id > self.hparams.num_items:
+            raise ValueError(
+                f'``item_id`` {item_id} is not in the model. '
+                'Expected ID between ``0`` and ``self.hparams.num_items`` '
+                f'(``{self.hparams.num_items}``), not ``{item_id}``'
+            )
+
         return self._calculate_embedding_similarity(
             embeddings=self._get_item_embeddings(),
             id=item_id
@@ -810,6 +817,13 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         Returned array is unfiltered, so the first element, being the most similar user, will
         always be the seed user themself.
         """
+        if user_id > self.hparams.num_users:
+            raise ValueError(
+                f'``user_id`` {user_id} is not in the model. '
+                'Expected ID between ``0`` and ``self.hparams.num_users`` '
+                f'(``{self.hparams.num_users}``), not ``{user_id}``'
+            )
+
         return self._calculate_embedding_similarity(
             embeddings=self._get_user_embeddings(),
             id=user_id
