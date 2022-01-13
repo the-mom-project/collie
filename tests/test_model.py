@@ -1372,17 +1372,17 @@ def test_get_item_preds_err(implicit_model,
     model = implicit_model
     train, _ = train_val_implicit_data
 
-    nonexistent_user_id = train.num_users + 1
+    nonexistent_user_id = train.num_users
 
     with pytest.raises(
         ValueError,
         match=re.escape(
             f'``user_id`` {nonexistent_user_id} is not in the model. '
-            'Expected ID between ``0`` and ``self.hparams.num_users`` '
-            f'(``{train.num_users}``), not ``{nonexistent_user_id}``'
+            'Expected ID between ``0`` and ``self.hparams.num_users - 1`` '
+            f'(``{train.num_users - 1}``), not ``{nonexistent_user_id}``'
         )
     ):
-        model.get_item_predictions(user_id=train.num_users + 1,
+        model.get_item_predictions(user_id=nonexistent_user_id,
                                    unseen_items_only=True,
                                    sort_values=True)
 
@@ -1392,17 +1392,17 @@ def test_get_user_preds_err(implicit_model,
     model = implicit_model
     train, _ = train_val_implicit_data
 
-    nonexistent_item_id = train.num_items + 1
+    nonexistent_item_id = train.num_items
 
     with pytest.raises(
         ValueError,
         match=re.escape(
             f'``item_id`` {nonexistent_item_id} is not in the model. '
-            'Expected ID between ``0`` and ``self.hparams.num_items`` '
-            f'(``{train.num_items}``), not ``{nonexistent_item_id}``'
+            'Expected ID between ``0`` and ``self.hparams.num_items - 1`` '
+            f'(``{train.num_items - 1}``), not ``{nonexistent_item_id}``'
         )
     ):
-        model.get_user_predictions(item_id=train.num_items + 1,
+        model.get_user_predictions(item_id=nonexistent_item_id,
                                    unseen_users_only=True,
                                    sort_values=True)
 
@@ -1412,17 +1412,17 @@ def test_item_item_similarity_err(implicit_model,
     model = implicit_model
     train, _ = train_val_implicit_data
 
-    nonexistent_item_id = train.num_items + 1
+    nonexistent_item_id = train.num_items
 
     with pytest.raises(
         ValueError,
         match=re.escape(
             f'``item_id`` {nonexistent_item_id} is not in the model. '
-            'Expected ID between ``0`` and ``self.hparams.num_items`` '
-            f'(``{train.num_items}``), not ``{nonexistent_item_id}``'
+            'Expected ID between ``0`` and ``self.hparams.num_items - 1`` '
+            f'(``{train.num_items - 1}``), not ``{nonexistent_item_id}``'
         )
     ):
-        model.item_item_similarity(item_id=train.num_items + 1)
+        model.item_item_similarity(item_id=nonexistent_item_id)
 
 
 def test_user_user_similarity_err(implicit_model,
@@ -1430,14 +1430,14 @@ def test_user_user_similarity_err(implicit_model,
     model = implicit_model
     train, _ = train_val_implicit_data
 
-    nonexistent_user_id = train.num_users + 1
+    nonexistent_user_id = train.num_users
 
     with pytest.raises(
         ValueError,
         match=re.escape(
             f'``user_id`` {nonexistent_user_id} is not in the model. '
-            'Expected ID between ``0`` and ``self.hparams.num_users`` '
-            f'(``{train.num_users}``), not ``{nonexistent_user_id}``'
+            'Expected ID between ``0`` and ``self.hparams.num_users - 1`` '
+            f'(``{train.num_users - 1}``), not ``{nonexistent_user_id}``'
         )
     ):
-        model.user_user_similarity(user_id=train.num_users + 1)
+        model.user_user_similarity(user_id=nonexistent_user_id)

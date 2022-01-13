@@ -661,11 +661,11 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             the item ID
 
         """
-        if user_id > self.hparams.num_users:
+        if user_id >= self.hparams.num_users:
             raise ValueError(
                 f'``user_id`` {user_id} is not in the model. '
-                'Expected ID between ``0`` and ``self.hparams.num_users`` '
-                f'(``{self.hparams.num_users}``), not ``{user_id}``'
+                'Expected ID between ``0`` and ``self.hparams.num_users - 1`` '
+                f'(``{self.hparams.num_users - 1}``), not ``{user_id}``'
             )
 
         user = torch.tensor(
@@ -726,11 +726,11 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             Sorted values as predicted ratings for each user in the dataset with the index being
             the user ID
         """
-        if item_id > self.hparams.num_items:
+        if item_id >= self.hparams.num_items:
             raise ValueError(
                 f'``item_id`` {item_id} is not in the model. '
-                'Expected ID between ``0`` and ``self.hparams.num_items`` '
-                f'(``{self.hparams.num_items}``), not ``{item_id}``'
+                'Expected ID between ``0`` and ``self.hparams.num_items - 1`` '
+                f'(``{self.hparams.num_items - 1}``), not ``{item_id}``'
             )
 
         item = torch.tensor(
@@ -782,11 +782,11 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         always be the item itself.
 
         """
-        if item_id > self.hparams.num_items:
+        if item_id >= self.hparams.num_items:
             raise ValueError(
                 f'``item_id`` {item_id} is not in the model. '
-                'Expected ID between ``0`` and ``self.hparams.num_items`` '
-                f'(``{self.hparams.num_items}``), not ``{item_id}``'
+                'Expected ID between ``0`` and ``self.hparams.num_items - 1`` '
+                f'(``{self.hparams.num_items - 1}``), not ``{item_id}``'
             )
 
         return self._calculate_embedding_similarity(
@@ -817,11 +817,11 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         Returned array is unfiltered, so the first element, being the most similar user, will
         always be the seed user themself.
         """
-        if user_id > self.hparams.num_users:
+        if user_id >= self.hparams.num_users:
             raise ValueError(
                 f'``user_id`` {user_id} is not in the model. '
-                'Expected ID between ``0`` and ``self.hparams.num_users`` '
-                f'(``{self.hparams.num_users}``), not ``{user_id}``'
+                'Expected ID between ``0`` and ``self.hparams.num_users - 1`` '
+                f'(``{self.hparams.num_users - 1}``), not ``{user_id}``'
             )
 
         return self._calculate_embedding_similarity(
