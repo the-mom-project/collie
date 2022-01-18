@@ -24,7 +24,7 @@ class BaseInteractionsDataLoader(torch.utils.data.DataLoader):
     **kwargs: keyword arguments
         Keyword arguments passed into ``torch.utils.data.DataLoader.__init__``:
         https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
-    
+
     Original ``torch.utils.data.DataLoader`` docstring as follows:
     ########
     """

@@ -75,7 +75,7 @@ class CollieTrainer(Trainer):
 
         super().__init__(**kwargs)
 
-    __doc__ += pytorch_lightning.Trainer.__init__.__doc__
+    __doc__ += Trainer.__init__.__doc__
 
     @property
     def max_epochs(self):
