@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 import collections
 import random
 import textwrap
-from typing import Any, Iterable, List, Optional, Tuple, Union
+from typing import Any, Iterable, List, Literal, Optional, Tuple, Union
 import warnings
 
 import numpy as np
@@ -49,6 +49,8 @@ class BaseInteractions(torch.utils.data.Dataset, metaclass=ABCMeta):
     ratings: Iterable[int], 1-d
         Array of corresponding ratings to both ``users`` and ``items``. If ``None``, will default to
         each user in ``user`` interacting with an item with a rating value of 1
+    negative_sample_type: str
+        Type of negative sampling to be performed. One of either ``items`` or ``users``
     num_negative_samples: int
         Number of negative samples to return with each ``__getitem__`` call
     allow_missing_ids: bool
@@ -66,12 +68,12 @@ class BaseInteractions(torch.utils.data.Dataset, metaclass=ABCMeta):
     num_items: int
         Number of items in the dataset. If ``num_items == 'infer'``, this will be set to the
         ``mat.shape[1]`` or ``max(items) + 1``, depending on the input
-    check_num_negative_samples_is_valid: bool
+    check_num_negative_samples_is_valid: bool  #TODO - edit this
         Check that ``num_negative_samples`` is less than the maximum number of items a user has
         interacted with. If it is not, then for all users who have fewer than
         ``num_negative_samples`` items not interacted with, a random sample including positive items
         will be returned as negative
-    max_number_of_samples_to_consider: int
+    max_number_of_samples_to_consider: int  #TODO - edit this
         Number of samples to try for a given user before returning an approximate negative sample.
         This should be greater than ``num_negative_samples``. If set to ``0``, approximate negative
         sampling will be used by default in ``__getitem__`` and a positive item lookup dictionary
@@ -161,6 +163,13 @@ class BaseInteractions(torch.utils.data.Dataset, metaclass=ABCMeta):
         """Access item in the ``BaseInteractions`` instance."""
         pass
 
+    @abstractmethod
+    def __getuser__(self, index: Union[int, Iterable[int]]) -> (
+        Union[Tuple[Tuple[int, int], np.array], Tuple[Tuple[np.array, np.array], np.array]]
+    ):
+        """Access user in the ``BaseInteractions`` instance."""
+        pass
+
     def __len__(self) -> int:
         """Number of non-zero interactions in the ``BaseInteractions`` instance."""
         return self.num_interactions
@@ -246,6 +255,8 @@ class Interactions(BaseInteractions):
     ratings: Iterable[int], 1-d
         Array of corresponding ratings to both ``users`` and ``items``. If ``None``, will default to
         each user in ``user`` interacting with an item with a rating value of 1
+    negative_sample_type: str
+        Type of negative sampling to be performed. One of either ``users`` or ``items``
     num_negative_samples: int
         Number of negative samples to return with each ``__getitem__`` call
     allow_missing_ids: bool
@@ -282,6 +293,7 @@ class Interactions(BaseInteractions):
                  users: Optional[Iterable[int]] = None,
                  items: Optional[Iterable[int]] = None,
                  ratings: Optional[Iterable[int]] = None,
+                 negative_sample_type: Literal['item', 'user'] = 'item',
                  num_negative_samples: int = 10,
                  allow_missing_ids: bool = False,
                  remove_duplicate_user_item_pairs: bool = True,
@@ -313,10 +325,13 @@ class Interactions(BaseInteractions):
         if seed is None:
             seed = collie.utils.get_random_seed()
 
+        self.negative_sample_type = negative_sample_type
         self.num_negative_samples = num_negative_samples
         self.max_number_of_samples_to_consider = max_number_of_samples_to_consider
         self.check_num_negative_samples_is_valid = check_num_negative_samples_is_valid
         self.seed = seed
+        self._checked_num_negative_item_samples_is_valid = False
+        self._checked_num_negative_user_samples_is_valid = False
 
         random.seed(self.seed)
 
@@ -332,6 +347,7 @@ class Interactions(BaseInteractions):
                 ' sampling will be used.'
             )
 
+        #TODO - edit this comment
         # When an ``Interactions`` is instantiated with exact negative sampling, a
         # ``positive_items`` attribute is created, a ``set`` of the ``mat`` object that enables
         # fast, O(1), ``(row, col)`` lookup. When ``__getitem__`` is called, negative item IDs are
@@ -340,30 +356,54 @@ class Interactions(BaseInteractions):
         # have a negative match or reach a limit of ``max_number_of_samples_to_consider`` tries
         if self.check_num_negative_samples_is_valid:
             print('Checking ``num_negative_samples`` is valid...')
-            counter = collections.Counter(self.mat.row)
-            max_number_of_items_interacted_with = counter.most_common(1)[0][1]
-            print('Maximum number of items a user has interacted with: {}'.format(
-                max_number_of_items_interacted_with
-            ))
+            if self.negative_sample_type == 'item':
+                if self._checked_num_negative_item_samples_is_valid is False:
+                    self._checked_num_negative_item_samples_is_valid = (
+                        self._check_num_negative_samples_is_valid()
+                    )
+            elif self.negative_sample_type == 'user':
+                if self._checked_num_negative_user_samples_is_valid is False:
+                    self._checked_num_negative_user_samples_is_valid = (
+                        self._check_num_negative_samples_is_valid()
+                    )
 
-            del counter
-
-            is_valid = (
-                self.num_negative_samples
-                < (self.num_items - max_number_of_items_interacted_with)
-            )
-            assert is_valid, '``num_negative_samples`` must be less than {}!'.format(
-                (self.num_items - max_number_of_items_interacted_with)
-            )
-
-        self.positive_items = {}
+        self.positive_sets = {}
         if self.max_number_of_samples_to_consider > 0:
-            print('Generating positive items set...')
-            self._generate_positive_item_set()
+            print(f'Generating positive {self.negative_sample_type}s set...')
+            self._generate_positive_set()
 
-    def _generate_positive_item_set(self) -> None:
-        """Build positive item dictionary lookup for exact negative sampling."""
-        self.positive_items = set(zip(self.mat.row, self.mat.col))
+    def _check_num_negative_samples_is_valid(self) -> bool:
+        """Check if the number of negative samples is valid."""
+        if self.negative_sample_type == 'item':
+            counter = collections.Counter(self.mat.row)
+            num_ids = self.num_items
+            opposite_type = 'user'
+        elif self.negative_sample_type == 'user':
+            counter = collections.Counter(self.mat.col)
+            num_ids = self.num_users
+            opposite_type = 'item'
+
+        max_number_interacted_with = counter.most_common(1)[0][1]
+        print(
+            f'Maximum number of {self.negative_sample_type}s a {opposite_type} has interacted with:'
+            f' {max_number_interacted_with}'
+        )
+
+        del counter
+
+        is_valid = (
+            self.num_negative_samples
+            < (num_ids - max_number_interacted_with)
+        )
+        assert is_valid, '``num_negative_samples`` must be less than {}!'.format(
+            (num_ids - max_number_interacted_with)
+        )
+
+        return True
+
+    def _generate_positive_set(self) -> None:
+        """Build positive dictionary lookup for exact negative sampling."""
+        self.positive_sets = set(zip(self.mat.row, self.mat.col))
 
     def __repr__(self) -> str:
         """String representation of ``Interactions`` class."""
@@ -371,7 +411,7 @@ class Interactions(BaseInteractions):
             f'''
             Interactions object with {self.num_interactions} interactions between {self.num_users}
             users and {self.num_items} items, returning {self.num_negative_samples} negative
-            samples per interaction.
+            {self.negative_sample_type} samples per interaction.
             '''
         ).replace('\n', ' ').strip()
 
@@ -383,66 +423,76 @@ class Interactions(BaseInteractions):
         item_id = self.mat.col[index]
         # rating = self.mat.data[index]  # not needed for any loss currently implemented
 
-        negative_item_ids_array = self._negative_sample(user_id)
+        if self.negative_sample_type == 'item':
+            negative_ids_array = self._negative_sample(user_id)
+        elif self.negative_sample_type == 'user':
+            negative_ids_array = self._negative_sample(item_id)
 
-        return (user_id, item_id), negative_item_ids_array
+        return (user_id, item_id), negative_ids_array
 
-    def _negative_sample(self, user_id: Union[int, np.array]) -> np.array:
-        """Generate negative samples for a ``user_id``."""
+    def _negative_sample(self, id: Union[int, np.array]) -> np.array:
+        """Generate negative samples for an ``id``."""
+        if self.negative_sample_type == 'item':
+            num_ids = self.num_items
+            positive_set_tuple = '(specific_id, negative_id)'
+        elif self.negative_sample_type == 'user':
+            num_ids = self.num_users
+            positive_set_tuple = '(negative_id, specific_id)'
+
         if self.max_number_of_samples_to_consider > 0:
             # if we are here, we are doing true negative sampling
-            negative_item_ids_list = list()
+            negative_ids_list = list()
 
-            if not isinstance(user_id, collections.abc.Iterable):
-                user_id = [user_id]
+            if not isinstance(id, collections.abc.Iterable):
+                id = [id]
 
-            for specific_user_id in user_id:
-                # generate true negative samples for the ``user_id``
+            for specific_id in id:
+                # generate true negative samples for the ``id``
                 samples_checked = 0
-                temp_negative_item_ids_list = list()
+                temp_negative_ids_list = list()
 
-                while len(temp_negative_item_ids_list) < self.num_negative_samples:
-                    negative_item_id = random.choice(range(self.num_items))
-                    # we have a negative sample, make sure the user has not interacted with it
+                while len(temp_negative_ids_list) < self.num_negative_samples:
+                    negative_id = random.choice(range(num_ids))
+                    # we have a negative sample, make sure the seed ID has not interacted with it
                     # before, else we resample and try again
                     while (
-                        (specific_user_id, negative_item_id) in self.positive_items
-                        or negative_item_id in temp_negative_item_ids_list
+                        eval(positive_set_tuple) in self.positive_sets
+                        or negative_id in temp_negative_ids_list
                     ):
                         if samples_checked >= self.max_number_of_samples_to_consider:
                             num_samples_left_to_generate = (
-                                self.num_negative_samples - len(temp_negative_item_ids_list) - 1
+                                self.num_negative_samples - len(temp_negative_ids_list) - 1
                             )
-                            temp_negative_item_ids_list += random.choices(
-                                range(self.num_items), k=num_samples_left_to_generate
+                            temp_negative_ids_list += random.choices(
+                                range(num_ids), k=num_samples_left_to_generate
                             )
                             break
 
-                        negative_item_id = random.choice(range(self.num_items))
+                        negative_id = random.choice(range(num_ids))
                         samples_checked += 1
 
-                    temp_negative_item_ids_list.append(negative_item_id)
+                    temp_negative_ids_list.append(negative_id)
 
-                negative_item_ids_list += [np.array(temp_negative_item_ids_list)]
+                negative_ids_list += [np.array(temp_negative_ids_list)]
 
-            if len(user_id) > 1:
-                negative_item_ids_array = np.stack(negative_item_ids_list)
+            if len(id) > 1:
+                negative_ids_array = np.stack(negative_ids_list)
             else:
-                negative_item_ids_array = negative_item_ids_list[0]
+                negative_ids_array = negative_ids_list[0]
         else:
             # if we are here, we are doing approximate negative sampling
-            if isinstance(user_id, collections.abc.Iterable):
-                size = (len(user_id), self.num_negative_samples)
+            if isinstance(id, collections.abc.Iterable):
+                size = (len(id), self.num_negative_samples)
             else:
                 size = (self.num_negative_samples,)
 
-            negative_item_ids_array = np.random.randint(
+            negative_ids_array = np.random.randint(
                 low=0,
-                high=self.num_items,
+                high=num_ids,
                 size=size,
             )
 
-        return negative_item_ids_array
+        return negative_ids_array
 
 
 class ExplicitInteractions(BaseInteractions):
@@ -537,6 +587,11 @@ class ExplicitInteractions(BaseInteractions):
                          num_items=num_items)
 
     @property
+    def negative_sample_type(self) -> None:
+        """Does not exist for explicit data."""
+        raise AttributeError('``negative_sample_type`` does not exist for explicit datasets.')
+
+    @property
     def num_negative_samples(self) -> int:
         """Does not exist for explicit data."""
         raise AttributeError('``num_negative_samples`` does not exist for explicit datasets.')
@@ -577,6 +632,8 @@ class HDF5Interactions(torch.utils.data.Dataset):
         Column in HDF5 file with user IDs. IDs must begin at 0
     item_col: str
         Column in HDF5 file with item IDs. IDs must begin at 0
+    negative_sample_type: str
+        Type of negative sampling to be performed. One of either ``items`` or ``users``
     num_negative_samples: int
         Number of negative samples to return with each ``__getitem__`` call
     num_users: int
@@ -601,6 +658,7 @@ class HDF5Interactions(torch.utils.data.Dataset):
                  hdf5_path: str,
                  user_col: str = 'users',
                  item_col: str = 'items',
+                 negative_sample_type: Literal['item', 'user'] = 'item',
                  num_negative_samples: int = 10,
                  num_users: int = 'infer',
                  num_items: int = 'infer',
@@ -609,6 +667,7 @@ class HDF5Interactions(torch.utils.data.Dataset):
         self.hdf5_path = hdf5_path
         self.user_col = user_col
         self.item_col = item_col
+        self.negative_sample_type = negative_sample_type
         self.num_negative_samples = num_negative_samples
         self.seed = seed
         self.shuffle = shuffle
@@ -685,13 +744,20 @@ class HDF5Interactions(torch.utils.data.Dataset):
             user_ids = user_ids[idxs]
             item_ids = item_ids[idxs]
 
-        negative_item_ids = np.random.randint(
-            low=0,
-            high=self.num_items,
-            size=(len(user_ids), self.num_negative_samples)
-        )
+        if self.negative_sample_type == 'item':
+            negative_ids = np.random.randint(
+                low=0,
+                high=self.num_items,
+                size=(len(user_ids), self.num_negative_samples)
+            )
+        elif self.negative_sample_type == 'user':
+            negative_ids = np.random.randint(
+                low=0,
+                high=self.num_users,
+                size=(len(item_ids), self.num_negative_samples)
+            )
 
-        return (user_ids, item_ids), negative_item_ids
+        return (user_ids, item_ids), negative_ids
 
     def _get_data_chunk(self, start_idx: int, batch_size: int) -> pd.DataFrame:
         with pd.HDFStore(self.hdf5_path, mode='r', complib='blosc') as store:
@@ -709,7 +775,8 @@ class HDF5Interactions(torch.utils.data.Dataset):
             f'''
             HDF5Interactions object with {self.num_interactions} interactions between
             {self.num_users} users and {self.num_items} items, returning
-            {self.num_negative_samples} negative samples per interaction.
+            {self.num_negative_samples} negative {self.negative_sample_type} samples
+            per interaction.
             '''
         ).replace('\n', ' ').strip()
 

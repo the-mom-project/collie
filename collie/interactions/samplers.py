@@ -10,7 +10,8 @@ from collie.interactions.datasets import HDF5Interactions, Interactions
 
 class ApproximateNegativeSampler(torch.utils.data.sampler.Sampler):
     """
-    Custom ``Sampler`` for bulk-sampling approximate negative items in ``Interactions`` data.
+    Custom ``Sampler`` for bulk-sampling approximate negative items or users in ``Interactions``
+    data.
 
     Parameters
     ----------

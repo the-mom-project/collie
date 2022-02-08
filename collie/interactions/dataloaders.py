@@ -52,6 +52,11 @@ class BaseInteractionsDataLoader(torch.utils.data.DataLoader):
         return self.interactions.num_items
 
     @property
+    def negative_sample_type(self) -> int:
+        """Type of negative sample in ``interactions``."""
+        return self.interactions.negative_sample_type
+
+    @property
     def num_negative_samples(self) -> int:
         """Number of negative samples in ``interactions``."""
         return self.interactions.num_negative_samples
@@ -158,7 +163,8 @@ class InteractionsDataLoader(BaseInteractionsDataLoader):
         """String representation of ``InteractionsDataLoader`` class."""
         if hasattr(self.interactions, 'num_negative_samples'):
             extra_repr_str = (
-                f'{self.num_negative_samples} negative samples per implicit interaction in'
+                f'{self.num_negative_samples} negative {self.negative_sample_type} samples per'
+                ' implicit interaction in'
             )
         else:
             extra_repr_str = 'explicit,'
@@ -176,8 +182,9 @@ class InteractionsDataLoader(BaseInteractionsDataLoader):
 class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoader):
     """
     A computationally more efficient ``DataLoader`` for ``Interactions`` data using approximate
-    negative sampling for negative items.
+    negative sampling for negative items or users.
 
+    #TODO
     This DataLoader groups ``__getitem__`` calls together into a single operation, which
     dramatically speeds up a traditional DataLoader's process of calling ``__getitem__`` one index
     at a time, then concatenating them together before returning. In an effort to batch operations
@@ -287,8 +294,8 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
             f'''
             ApproximateNegativeSamplingInteractionsDataLoader object with {self.num_interactions}
             interactions between {self.num_users} users and {self.num_items} items, returning
-            {self.num_negative_samples} negative samples per implicit interaction in
-            {'shuffled' if self.shuffle else 'non-shuffled'} batches of size
+            {self.num_negative_samples} negative {self.negative_sample_type} samples per implicit
+            interaction in {'shuffled' if self.shuffle else 'non-shuffled'} batches of size
             {self.approximate_negative_sampler.batch_size}.
             '''
         ).replace('\n', ' ').strip()
