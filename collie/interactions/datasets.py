@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 import collections
 import random
 import textwrap
-from typing import Any, Iterable, List, Literal, Optional, Tuple, Union
+from typing import Any, Iterable, List, Optional, Tuple, Union
 import warnings
 
 import numpy as np
@@ -10,6 +10,7 @@ import pandas as pd
 from scipy.sparse import coo_matrix, dok_matrix
 import torch
 from tqdm.auto import tqdm
+from typing_extensions import Literal
 
 import collie
 
@@ -68,16 +69,16 @@ class BaseInteractions(torch.utils.data.Dataset, metaclass=ABCMeta):
     num_items: int
         Number of items in the dataset. If ``num_items == 'infer'``, this will be set to the
         ``mat.shape[1]`` or ``max(items) + 1``, depending on the input
-    check_num_negative_samples_is_valid: bool  #TODO - edit this
-        Check that ``num_negative_samples`` is less than the maximum number of items a user has
-        interacted with. If it is not, then for all users who have fewer than
-        ``num_negative_samples`` items not interacted with, a random sample including positive items
-        will be returned as negative
-    max_number_of_samples_to_consider: int  #TODO - edit this
-        Number of samples to try for a given user before returning an approximate negative sample.
-        This should be greater than ``num_negative_samples``. If set to ``0``, approximate negative
-        sampling will be used by default in ``__getitem__`` and a positive item lookup dictionary
-        will NOT be built
+    check_num_negative_samples_is_valid: bool
+        Check that ``num_negative_samples`` is less than the maximum number of interactions between
+        users and items depending on ``negative_sample_type``. If it is not, then for all users or
+        items who have fewer interactions than ``num_negative_samples``, a random sample including
+        positive ids will be returned as negative
+    max_number_of_samples_to_consider: int
+        Number of samples to try for a given user or item before returning an approximate negative
+        sample. This should be greater than ``num_negative_samples``. If set to ``0``, approximate
+        negative sampling will be used by default in ``__getitem__`` and a positive set lookup
+        dictionary will NOT be built
 
     """
     def __init__(self,
@@ -161,13 +162,6 @@ class BaseInteractions(torch.utils.data.Dataset, metaclass=ABCMeta):
         Union[Tuple[Tuple[int, int], np.array], Tuple[Tuple[np.array, np.array], np.array]]
     ):
         """Access item in the ``BaseInteractions`` instance."""
-        pass
-
-    @abstractmethod
-    def __getuser__(self, index: Union[int, Iterable[int]]) -> (
-        Union[Tuple[Tuple[int, int], np.array], Tuple[Tuple[np.array, np.array], np.array]]
-    ):
-        """Access user in the ``BaseInteractions`` instance."""
         pass
 
     def __len__(self) -> int:
@@ -275,15 +269,15 @@ class Interactions(BaseInteractions):
         Number of items in the dataset. If ``num_items == 'infer'``, this will be set to the
         ``mat.shape[1]`` or ``max(items) + 1``, depending on the input
     check_num_negative_samples_is_valid: bool
-        Check that ``num_negative_samples`` is less than the maximum number of items a user has
-        interacted with. If it is not, then for all users who have fewer than
-        ``num_negative_samples`` items not interacted with, a random sample including positive items
-        will be returned as negative
+        Check that ``num_negative_samples`` is less than the maximum number of interactions between
+        users and items depending on ``negative_sample_type``. If it is not, then for all users or
+        items who have fewer interactions than ``num_negative_samples``, a random sample including
+        positive ids will be returned as negative
     max_number_of_samples_to_consider: int
-        Number of samples to try for a given user before returning an approximate negative sample.
-        This should be greater than ``num_negative_samples``. If set to ``0``, approximate negative
-        sampling will be used by default in ``__getitem__`` and a positive item lookup dictionary
-        will NOT be built
+        Number of samples to try for a given user or item before returning an approximate negative
+        sample. This should be greater than ``num_negative_samples``. If set to ``0``, approximate
+        negative sampling will be used by default in ``__getitem__`` and a positive set lookup
+        dictionary will NOT be built
     seed: int
         Seed for random sampling
 
@@ -347,13 +341,13 @@ class Interactions(BaseInteractions):
                 ' sampling will be used.'
             )
 
-        #TODO - edit this comment
         # When an ``Interactions`` is instantiated with exact negative sampling, a
-        # ``positive_items`` attribute is created, a ``set`` of the ``mat`` object that enables
-        # fast, O(1), ``(row, col)`` lookup. When ``__getitem__`` is called, negative item IDs are
-        # sampled one-at-a-time from all possible values in ``self.num_items``, we check if that
-        # user ID, item ID pair is in ``self.positive_items``, and sample continuously until we
-        # have a negative match or reach a limit of ``max_number_of_samples_to_consider`` tries
+        # ``positive_sets`` attribute is created, a ``set`` of the ``mat`` object that enables
+        # fast, O(1), ``(row, col)`` lookup. When ``__getitem__`` is called, negative item or
+        # user IDs are sampled one-at-a-time from all possible values in ``self.num_items``
+        # or ``self.num_users``, we check if that user ID, item ID pair is in
+        # ``self.positive_sets``, and sample continuously until we have a negative match or
+        # reach a limit of ``max_number_of_samples_to_consider`` tries
         if self.check_num_negative_samples_is_valid:
             print('Checking ``num_negative_samples`` is valid...')
             if self.negative_sample_type == 'item':

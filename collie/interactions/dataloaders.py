@@ -398,7 +398,8 @@ class HDF5InteractionsDataLoader(BaseInteractionsDataLoader):
             HDF5InteractionsDataLoader object with {self.interactions.num_interactions}
             interactions between {self.interactions.num_users} users and
             {self.interactions.num_items} items, returning {self.num_negative_samples} negative
-            samples per implicit interaction in {'shuffled' if self.shuffle else 'non-shuffled'}
+            {self.negative_sample_type} samples per implicit interaction in
+            {'shuffled' if self.shuffle else 'non-shuffled'}
             batches of size {self.hdf5_sampler.batch_size}.
             '''
         ).replace('\n', ' ').strip()
