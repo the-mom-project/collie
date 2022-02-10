@@ -13,7 +13,7 @@ from collie.interactions import (ApproximateNegativeSamplingInteractionsDataLoad
 
 
 NUM_NEGATIVE_SAMPLES = 3
-NUM_USERS_TO_GENERATE = 10
+NUM_USERS_OR_ITEMS_TO_GENERATE = 10
 
 
 # @pytest.mark.parametrize('negative_sample_type', ['item', 'user'])
@@ -374,7 +374,7 @@ class TestInteractionsNegativeSampling:
 
             assert len(negative_samples) == 3
 
-    def test_Interactions_approximate_negative_samples_many_users(
+    def test_Interactions_approximate_negative_samples_many_users_or_items(
         self,
         ratings_matrix_for_interactions,
         negative_sample_type,
@@ -388,9 +388,9 @@ class TestInteractionsNegativeSampling:
         assert interactions.positive_sets == {}
 
         for _ in range(3):
-            _, negative_samples = interactions[list(range(NUM_USERS_TO_GENERATE))]
+            _, negative_samples = interactions[list(range(NUM_USERS_OR_ITEMS_TO_GENERATE))]
 
-            assert len(negative_samples) == NUM_USERS_TO_GENERATE
+            assert len(negative_samples) == NUM_USERS_OR_ITEMS_TO_GENERATE
 
             for negative_sample in negative_samples:
                 assert len(negative_sample) == NUM_NEGATIVE_SAMPLES
@@ -447,7 +447,7 @@ class TestInteractionsNegativeSampling:
 
         assert len(set(all_negative_samples)) > NUM_NEGATIVE_SAMPLES
 
-    def test_Interactions_exact_negative_samples_many_users(
+    def test_Interactions_exact_negative_samples_many_users_or_items(
         self,
         ratings_matrix_for_interactions,
         negative_sample_type,
@@ -462,10 +462,10 @@ class TestInteractionsNegativeSampling:
 
         for _ in range(10):
             (user_ids, item_ids), negative_samples = (
-                interactions[list(range(NUM_USERS_TO_GENERATE))]
+                interactions[list(range(NUM_USERS_OR_ITEMS_TO_GENERATE))]
             )
 
-            assert len(negative_samples) == NUM_USERS_TO_GENERATE
+            assert len(negative_samples) == NUM_USERS_OR_ITEMS_TO_GENERATE
 
             if negative_sample_type == 'item':
                 for idx, user_id in enumerate(user_ids):
