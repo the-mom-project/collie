@@ -318,10 +318,10 @@ class Interactions(BaseInteractions):
         if seed is None:
             seed = collie.utils.get_random_seed()
 
-        if self.negative_sample_type not in ('item', 'user'):
+        if negative_sample_type not in ('item', 'user'):
             raise ValueError(
                 '``negative_sample_type`` must be either ``item`` or ``user``, not '
-                f'``{self.negative_sample_type}``!'
+                f'``{negative_sample_type}``!'
             )
 
         self.negative_sample_type = negative_sample_type
@@ -673,10 +673,10 @@ class HDF5Interactions(torch.utils.data.Dataset):
                  num_items: int = 'infer',
                  seed: Optional[int] = None,
                  shuffle: bool = False):
-        if self.negative_sample_type not in ('item', 'user'):
+        if negative_sample_type not in ('item', 'user'):
             raise ValueError(
                 '``negative_sample_type`` must be either ``item`` or ``user``, not '
-                f'{self.negative_sample_type}!'
+                f'{negative_sample_type}!'
             )
 
         self.hdf5_path = hdf5_path
