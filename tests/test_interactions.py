@@ -16,7 +16,6 @@ NUM_NEGATIVE_SAMPLES = 3
 NUM_USERS_OR_ITEMS_TO_GENERATE = 10
 
 
-# @pytest.mark.parametrize('negative_sample_type', ['item', 'user'])
 def test_Interactions(interactions_matrix,
                       interactions_sparse_matrix,
                       interactions_pandas):
@@ -186,14 +185,18 @@ def test_ExplicitInteractions_with_0_ratings(explicit_interactions_pandas,
 
 class TestBadInteractionsInstantiation:
     def test_items_None(self, df_for_interactions):
-        with pytest.raises(AssertionError):
+        with pytest.raises(AssertionError, match=(
+            'Either 1) ``mat`` or 2) both ``users`` or ``items`` must be non-null!'
+        )):
             Interactions(users=df_for_interactions['user_id'],
                          items=None,
                          ratings=df_for_interactions['ratings'],
                          check_num_negative_samples_is_valid=False)
 
     def test_users_None(self, df_for_interactions):
-        with pytest.raises(AssertionError):
+        with pytest.raises(AssertionError, match=(
+            'Either 1) ``mat`` or 2) both ``users`` or ``items`` must be non-null!'
+        )):
             Interactions(users=None,
                          items=df_for_interactions['item_id'],
                          ratings=df_for_interactions['ratings'],
@@ -206,7 +209,10 @@ class TestBadInteractionsInstantiation:
                      check_num_negative_samples_is_valid=False)
 
     def test_ratings_None_but_its_explicit_so_not_okay(self, df_for_interactions):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=(
+            'Ratings must be provided to ``ExplicitInteractions`` with ``mat`` or ``ratings``'
+            ' - both cannot be ``None``!'
+        )):
             ExplicitInteractions(users=df_for_interactions['user_id'],
                                  items=df_for_interactions['item_id'],
                                  ratings=None)
@@ -250,6 +256,15 @@ class TestBadInteractionsInstantiation:
         )
 
         assert non_duplicated_interactions.mat.getnnz() == explicit_interactions_pandas.mat.getnnz()
+
+    def test_bad_negative_sample_type(self, df_for_interactions):
+        with pytest.raises(ValueError, match=(
+            '``negative_sample_type`` must be either ``item`` or ``user``, not ``users``!'
+        )):
+            Interactions(users=df_for_interactions['user_id'],
+                         items=df_for_interactions['item_id'],
+                         negative_sample_type='users',
+                         check_num_negative_samples_is_valid=False)
 
 
 class TestInteractionsDataMethods:
@@ -367,7 +382,7 @@ class TestInteractionsNegativeSampling:
                                     max_number_of_samples_to_consider=0,
                                     seed=42)
 
-        assert interactions.positive_sets == {}
+        assert interactions.positive_set == {}
 
         for _ in range(3):
             _, negative_samples = interactions[0]
@@ -385,7 +400,7 @@ class TestInteractionsNegativeSampling:
                                     max_number_of_samples_to_consider=0,
                                     seed=42)
 
-        assert interactions.positive_sets == {}
+        assert interactions.positive_set == {}
 
         for _ in range(3):
             _, negative_samples = interactions[list(range(NUM_USERS_OR_ITEMS_TO_GENERATE))]
@@ -407,7 +422,7 @@ class TestInteractionsNegativeSampling:
                                         max_number_of_samples_to_consider=1,
                                         seed=42)
 
-        assert interactions.positive_sets != {}
+        assert interactions.positive_set != {}
 
         for _ in range(3):
             _, negative_samples = interactions[0]
@@ -425,11 +440,11 @@ class TestInteractionsNegativeSampling:
                                     max_number_of_samples_to_consider=200,
                                     seed=42)
 
-        assert interactions.positive_sets != {}
+        assert interactions.positive_set != {}
 
         all_negative_samples = list()
         for _ in range(10):
-            (_, item_id), negative_samples = interactions[0]
+            _, negative_samples = interactions[0]
 
             assert len(negative_samples) == NUM_NEGATIVE_SAMPLES
 
@@ -440,7 +455,7 @@ class TestInteractionsNegativeSampling:
                     )
                 elif negative_sample_type == 'user':
                     assert negative_sample.item() not in (
-                        ratings_matrix_for_interactions[:, item_id].nonzero()[0]
+                        ratings_matrix_for_interactions[:, 1].nonzero()[0]
                     )
 
             all_negative_samples += negative_samples.tolist()
@@ -458,7 +473,7 @@ class TestInteractionsNegativeSampling:
                                     max_number_of_samples_to_consider=200,
                                     seed=42)
 
-        assert interactions.positive_sets != {}
+        assert interactions.positive_set != {}
 
         for _ in range(10):
             (user_ids, item_ids), negative_samples = (
