@@ -210,7 +210,7 @@ class TestBadInteractionsInstantiation:
                      check_num_negative_samples_is_valid=False)
 
     def test_ratings_None_but_its_explicit_so_not_okay(self, df_for_interactions):
-        with pytest.raises(ValueError, match=(
+        with pytest.raises(ValueError, match=re.escape(
             'Ratings must be provided to ``ExplicitInteractions`` with ``mat`` or ``ratings``'
             ' - both cannot be ``None``!'
         )):
@@ -259,7 +259,7 @@ class TestBadInteractionsInstantiation:
         assert non_duplicated_interactions.mat.getnnz() == explicit_interactions_pandas.mat.getnnz()
 
     def test_bad_negative_sample_type(self, df_for_interactions):
-        with pytest.raises(ValueError, match=(
+        with pytest.raises(ValueError, match=re.escape(
             '``negative_sample_type`` must be either ``item`` or ``user``, not ``users``!'
         )):
             Interactions(users=df_for_interactions['user_id'],

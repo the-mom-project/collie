@@ -17,7 +17,7 @@ import collie
 
 class BaseInteractions(torch.utils.data.Dataset, metaclass=ABCMeta):
     """
-    PyTorch ``Dataset`` for implicit user-item interactions data.
+    PyTorch ``Dataset`` for user-item interactions data.
 
     If ``mat`` is provided, the ``Interactions`` instance will act as a wrapper for a sparse matrix
     in COOrdinate format, typically looking like:
@@ -28,15 +28,11 @@ class BaseInteractions(torch.utils.data.Dataset, metaclass=ABCMeta):
 
     * Ratings given by that user for that item comprising the elements of the matrix
 
-    ``Interactions`` can be instantiated instead by passing in single arrays with corresponding
+    ``BaseInteractions`` can be instantiated instead by passing in single arrays with corresponding
     user_ids, item_ids, and ratings (by default, set to 1 for implicit recommenders) values with
     the same functionality as a matrix. Note that with this approach, the number of users and items
     will be the maximum values in those two columns, respectively, and it is expected that all
     integers between 0 and the maximum ID should appear somewhere in the data.
-
-    By default, exact negative sampling will be used during each ``__getitem__`` call. To use
-    approximate negative sampling, set ``max_number_of_samples_to_consider = 0``. This will avoid
-    building a positive item lookup dictionary during initialization.
 
     Parameters
     ----------
@@ -65,16 +61,6 @@ class BaseInteractions(torch.utils.data.Dataset, metaclass=ABCMeta):
     num_items: int
         Number of items in the dataset. If ``num_items == 'infer'``, this will be set to the
         ``mat.shape[1]`` or ``max(items) + 1``, depending on the input
-    check_num_negative_samples_is_valid: bool
-        Check that ``num_negative_samples`` is less than the maximum number of interactions between
-        users and items depending on ``negative_sample_type``. If it is not, then for all users or
-        items who have fewer interactions than ``num_negative_samples``, a random sample including
-        positive IDs will be returned as negative
-    max_number_of_samples_to_consider: int
-        Number of samples to try for a given user or item before returning an approximate negative
-        sample. This should be greater than ``num_negative_samples``. If set to ``0``, approximate
-        negative sampling will be used by default in ``__getitem__`` and a positive set lookup
-        dictionary will NOT be built
 
     """
     def __init__(self,
@@ -318,11 +304,7 @@ class Interactions(BaseInteractions):
         if seed is None:
             seed = collie.utils.get_random_seed()
 
-        if negative_sample_type not in ('item', 'user'):
-            raise ValueError(
-                '``negative_sample_type`` must be either ``item`` or ``user``, not '
-                f'``{negative_sample_type}``!'
-            )
+        _validate_negative_sample_type(negative_sample_type=negative_sample_type)
 
         self.negative_sample_type = negative_sample_type
         self.num_negative_samples = num_negative_samples
@@ -385,8 +367,8 @@ class Interactions(BaseInteractions):
 
         max_number_interacted_with = counter.most_common(1)[0][1]
         print(
-            f'Maximum number of {negative_sample_type}s a {opposite_type} has interacted with:'
-            f' {max_number_interacted_with}'
+            f"Maximum number of {negative_sample_type}s {'a' if opposite_type == 'user' else 'an'}"
+            f' {opposite_type} has interacted with: {max_number_interacted_with}'
         )
 
         del counter
@@ -395,8 +377,8 @@ class Interactions(BaseInteractions):
 
         is_valid = self.num_negative_samples < num_ids_max_interactions_diff
 
-        assert is_valid, '``num_negative_samples`` must be less than {}!'.format(
-            (num_ids_max_interactions_diff)
+        assert is_valid, (
+            f'``num_negative_samples`` must be less than {num_ids_max_interactions_diff}!'
         )
 
         return True
@@ -598,7 +580,7 @@ class ExplicitInteractions(BaseInteractions):
         raise AttributeError('``negative_sample_type`` does not exist for explicit datasets.')
 
     @property
-    def num_negative_samples(self) -> int:
+    def num_negative_samples(self) -> None:
         """Does not exist for explicit data."""
         raise AttributeError('``num_negative_samples`` does not exist for explicit datasets.')
 
@@ -673,11 +655,7 @@ class HDF5Interactions(torch.utils.data.Dataset):
                  num_items: int = 'infer',
                  seed: Optional[int] = None,
                  shuffle: bool = False):
-        if negative_sample_type not in ('item', 'user'):
-            raise ValueError(
-                '``negative_sample_type`` must be either ``item`` or ``user``, not '
-                f'{negative_sample_type}!'
-            )
+        _validate_negative_sample_type(negative_sample_type=negative_sample_type)
 
         self.hdf5_path = hdf5_path
         self.user_col = user_col
@@ -828,3 +806,12 @@ def _check_array_contains_all_integers(array: Iterable[int],
 
 def _drop_array_values_by_idx(array: Iterable[Any], indices_to_drop: Iterable[int]) -> List[Any]:
     return [element for idx, element in enumerate(array) if idx not in indices_to_drop]
+
+
+def _validate_negative_sample_type(negative_sample_type: str) -> None:
+    """Check that ``negative_sample_type`` is either 'item' or 'user'."""
+    if negative_sample_type not in ('item', 'user'):
+        raise ValueError(
+            '``negative_sample_type`` must be either ``item`` or ``user``, not '
+            f'``{negative_sample_type}``!'
+        )
