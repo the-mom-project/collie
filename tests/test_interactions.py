@@ -1,3 +1,4 @@
+import re
 import sys
 
 import numpy as np
@@ -185,7 +186,7 @@ def test_ExplicitInteractions_with_0_ratings(explicit_interactions_pandas,
 
 class TestBadInteractionsInstantiation:
     def test_items_None(self, df_for_interactions):
-        with pytest.raises(AssertionError, match=(
+        with pytest.raises(AssertionError, match=re.escape(
             'Either 1) ``mat`` or 2) both ``users`` or ``items`` must be non-null!'
         )):
             Interactions(users=df_for_interactions['user_id'],
@@ -194,7 +195,7 @@ class TestBadInteractionsInstantiation:
                          check_num_negative_samples_is_valid=False)
 
     def test_users_None(self, df_for_interactions):
-        with pytest.raises(AssertionError, match=(
+        with pytest.raises(AssertionError, match=re.escape(
             'Either 1) ``mat`` or 2) both ``users`` or ``items`` must be non-null!'
         )):
             Interactions(users=None,
