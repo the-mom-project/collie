@@ -1,3 +1,4 @@
+import re
 import sys
 
 import numpy as np
@@ -13,7 +14,7 @@ from collie.interactions import (ApproximateNegativeSamplingInteractionsDataLoad
 
 
 NUM_NEGATIVE_SAMPLES = 3
-NUM_USERS_TO_GENERATE = 10
+NUM_USERS_OR_ITEMS_TO_GENERATE = 10
 
 
 def test_Interactions(interactions_matrix,
@@ -38,8 +39,8 @@ def test_Interactions(interactions_matrix,
     )
 
     expected_repr = (
-        'Interactions object with 12 interactions between 6 users and 10 items,'
-        ' returning 10 negative samples per interaction.'
+        'Interactions object with 12 interactions between 6 users and 10 items, '
+        f'returning 10 negative {interactions_matrix.negative_sample_type} samples per interaction.'
     )
     assert (
         str(interactions_matrix)
@@ -185,14 +186,18 @@ def test_ExplicitInteractions_with_0_ratings(explicit_interactions_pandas,
 
 class TestBadInteractionsInstantiation:
     def test_items_None(self, df_for_interactions):
-        with pytest.raises(AssertionError):
+        with pytest.raises(AssertionError, match=re.escape(
+            'Either 1) ``mat`` or 2) both ``users`` or ``items`` must be non-null!'
+        )):
             Interactions(users=df_for_interactions['user_id'],
                          items=None,
                          ratings=df_for_interactions['ratings'],
                          check_num_negative_samples_is_valid=False)
 
     def test_users_None(self, df_for_interactions):
-        with pytest.raises(AssertionError):
+        with pytest.raises(AssertionError, match=re.escape(
+            'Either 1) ``mat`` or 2) both ``users`` or ``items`` must be non-null!'
+        )):
             Interactions(users=None,
                          items=df_for_interactions['item_id'],
                          ratings=df_for_interactions['ratings'],
@@ -205,7 +210,10 @@ class TestBadInteractionsInstantiation:
                      check_num_negative_samples_is_valid=False)
 
     def test_ratings_None_but_its_explicit_so_not_okay(self, df_for_interactions):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=re.escape(
+            'Ratings must be provided to ``ExplicitInteractions`` with ``mat`` or ``ratings``'
+            ' - both cannot be ``None``!'
+        )):
             ExplicitInteractions(users=df_for_interactions['user_id'],
                                  items=df_for_interactions['item_id'],
                                  ratings=None)
@@ -249,6 +257,15 @@ class TestBadInteractionsInstantiation:
         )
 
         assert non_duplicated_interactions.mat.getnnz() == explicit_interactions_pandas.mat.getnnz()
+
+    def test_bad_negative_sample_type(self, df_for_interactions):
+        with pytest.raises(ValueError, match=re.escape(
+            '``negative_sample_type`` must be either ``item`` or ``user``, not ``users``!'
+        )):
+            Interactions(users=df_for_interactions['user_id'],
+                         items=df_for_interactions['item_id'],
+                         negative_sample_type='users',
+                         check_num_negative_samples_is_valid=False)
 
 
 class TestInteractionsDataMethods:
@@ -353,35 +370,43 @@ class TestInteractionsDataMethods:
                               sparse_ratings_matrix_for_interactions.toarray()[sys.maxsize:])
 
 
+@pytest.mark.parametrize('negative_sample_type', ['item', 'user'])
 class TestInteractionsNegativeSampling:
-    def test_Interactions_approximate_negative_samples(self, ratings_matrix_for_interactions):
+    def test_Interactions_approximate_negative_samples(
+        self,
+        ratings_matrix_for_interactions,
+        negative_sample_type,
+    ):
         interactions = Interactions(mat=ratings_matrix_for_interactions,
+                                    negative_sample_type=negative_sample_type,
                                     num_negative_samples=NUM_NEGATIVE_SAMPLES,
                                     max_number_of_samples_to_consider=0,
                                     seed=42)
 
-        assert interactions.positive_items == {}
+        assert interactions.positive_set == {}
 
         for _ in range(3):
             _, negative_samples = interactions[0]
 
             assert len(negative_samples) == 3
 
-    def test_Interactions_approximate_negative_samples_many_users(
+    def test_Interactions_approximate_negative_samples_many_users_or_items(
         self,
         ratings_matrix_for_interactions,
+        negative_sample_type,
     ):
         interactions = Interactions(mat=ratings_matrix_for_interactions,
+                                    negative_sample_type=negative_sample_type,
                                     num_negative_samples=NUM_NEGATIVE_SAMPLES,
                                     max_number_of_samples_to_consider=0,
                                     seed=42)
 
-        assert interactions.positive_items == {}
+        assert interactions.positive_set == {}
 
         for _ in range(3):
-            _, negative_samples = interactions[list(range(NUM_USERS_TO_GENERATE))]
+            _, negative_samples = interactions[list(range(NUM_USERS_OR_ITEMS_TO_GENERATE))]
 
-            assert len(negative_samples) == NUM_USERS_TO_GENERATE
+            assert len(negative_samples) == NUM_USERS_OR_ITEMS_TO_GENERATE
 
             for negative_sample in negative_samples:
                 assert len(negative_sample) == NUM_NEGATIVE_SAMPLES
@@ -389,27 +414,34 @@ class TestInteractionsNegativeSampling:
     def test_Interactions_approximate_negative_samples_partway_through(
         self,
         ratings_matrix_for_interactions,
+        negative_sample_type,
     ):
         with pytest.warns(UserWarning):
             interactions = Interactions(mat=ratings_matrix_for_interactions,
+                                        negative_sample_type=negative_sample_type,
                                         num_negative_samples=NUM_NEGATIVE_SAMPLES,
                                         max_number_of_samples_to_consider=1,
                                         seed=42)
 
-        assert interactions.positive_items != {}
+        assert interactions.positive_set != {}
 
         for _ in range(3):
             _, negative_samples = interactions[0]
 
             assert len(negative_samples) == 3
 
-    def test_Interactions_exact_negative_samples(self, ratings_matrix_for_interactions):
+    def test_Interactions_exact_negative_samples(
+        self,
+        ratings_matrix_for_interactions,
+        negative_sample_type,
+    ):
         interactions = Interactions(mat=ratings_matrix_for_interactions,
+                                    negative_sample_type=negative_sample_type,
                                     num_negative_samples=NUM_NEGATIVE_SAMPLES,
                                     max_number_of_samples_to_consider=200,
                                     seed=42)
 
-        assert interactions.positive_items != {}
+        assert interactions.positive_set != {}
 
         all_negative_samples = list()
         for _ in range(10):
@@ -418,57 +450,87 @@ class TestInteractionsNegativeSampling:
             assert len(negative_samples) == NUM_NEGATIVE_SAMPLES
 
             for negative_sample in negative_samples:
-                assert negative_sample.item() not in ratings_matrix_for_interactions[0].nonzero()[0]
+                if negative_sample_type == 'item':
+                    assert negative_sample.item() not in (
+                        ratings_matrix_for_interactions[0].nonzero()[0]
+                    )
+                elif negative_sample_type == 'user':
+                    assert negative_sample.item() not in (
+                        ratings_matrix_for_interactions[:, 1].nonzero()[0]
+                    )
 
             all_negative_samples += negative_samples.tolist()
 
         assert len(set(all_negative_samples)) > NUM_NEGATIVE_SAMPLES
 
-    def test_Interactions_exact_negative_samples_many_users(self, ratings_matrix_for_interactions):
+    def test_Interactions_exact_negative_samples_many_users_or_items(
+        self,
+        ratings_matrix_for_interactions,
+        negative_sample_type,
+    ):
         interactions = Interactions(mat=ratings_matrix_for_interactions,
+                                    negative_sample_type=negative_sample_type,
                                     num_negative_samples=NUM_NEGATIVE_SAMPLES,
                                     max_number_of_samples_to_consider=200,
                                     seed=42)
 
-        assert interactions.positive_items != {}
+        assert interactions.positive_set != {}
 
         for _ in range(10):
-            (user_ids, _), negative_samples = interactions[list(range(NUM_USERS_TO_GENERATE))]
+            (user_ids, item_ids), negative_samples = (
+                interactions[list(range(NUM_USERS_OR_ITEMS_TO_GENERATE))]
+            )
 
-            assert len(negative_samples) == NUM_USERS_TO_GENERATE
+            assert len(negative_samples) == NUM_USERS_OR_ITEMS_TO_GENERATE
 
-            for idx, user_id in enumerate(user_ids):
-                assert len(negative_samples[idx]) == NUM_NEGATIVE_SAMPLES
+            if negative_sample_type == 'item':
+                for idx, user_id in enumerate(user_ids):
+                    assert len(negative_samples[idx]) == NUM_NEGATIVE_SAMPLES
 
-                for negative_sample in negative_samples[idx]:
-                    assert (
-                        negative_sample.item()
-                        not in ratings_matrix_for_interactions[user_id].nonzero()[0]
-                    )
+                    for negative_sample in negative_samples[idx]:
+                        assert (
+                            negative_sample.item()
+                            not in ratings_matrix_for_interactions[user_id].nonzero()[0]
+                        )
+            elif negative_sample_type == 'user':
+                for idx, item_id in enumerate(item_ids):
+                    assert len(negative_samples[idx]) == NUM_NEGATIVE_SAMPLES
+
+                    for negative_sample in negative_samples[idx]:
+                        assert (
+                            negative_sample.item()
+                            not in ratings_matrix_for_interactions[:, item_id].nonzero()[0]
+                        )
 
     def test_Interactions_exact_negative_samples_num_negative_samples_too_large(
         self,
         ratings_matrix_for_interactions,
+        negative_sample_type,
     ):
         with pytest.raises(AssertionError):
             Interactions(mat=ratings_matrix_for_interactions,
+                         negative_sample_type=negative_sample_type,
                          max_number_of_samples_to_consider=200,
                          num_negative_samples=8)
 
 
+@pytest.mark.parametrize('negative_sample_type', ['item', 'user'])
 def test_HDF5Interactions_meta_instantiation(hdf5_pandas_df_path,
                                              hdf5_pandas_df_path_with_meta,
-                                             capfd):
+                                             capfd,
+                                             negative_sample_type):
     interactions_with_meta = HDF5Interactions(hdf5_path=hdf5_pandas_df_path_with_meta,
                                               user_col='user_id',
-                                              item_col='item_id')
+                                              item_col='item_id',
+                                              negative_sample_type=negative_sample_type)
 
     out, _ = capfd.readouterr()
     assert '``meta`` key not found - generating ``num_users`` and ``num_items``' not in out
 
     interactions_no_meta = HDF5Interactions(hdf5_path=hdf5_pandas_df_path,
                                             user_col='user_id',
-                                            item_col='item_id')
+                                            item_col='item_id',
+                                            negative_sample_type=negative_sample_type)
 
     out, _ = capfd.readouterr()
     assert '``meta`` key not found - generating ``num_users`` and ``num_items``' in out
@@ -478,7 +540,7 @@ def test_HDF5Interactions_meta_instantiation(hdf5_pandas_df_path,
 
     expected_repr = (
         'HDF5Interactions object with 12 interactions between 6 users and 10 items, returning 10'
-        ' negative samples per interaction.'
+        f' negative {negative_sample_type} samples per interaction.'
     )
     assert str(interactions_with_meta) == str(interactions_no_meta) == expected_repr
 
@@ -669,18 +731,26 @@ def test_instantiate_data_loaders_explicit(explicit_interactions_pandas):
     assert str(data_loader_class) == expected_repr
 
 
-def test_hdf5_interactions_dataloader_attributes(df_for_interactions, hdf5_pandas_df_path):
+@pytest.mark.parametrize('negative_sample_type', ['item', 'user'])
+def test_hdf5_interactions_dataloader_attributes(
+    df_for_interactions,
+    hdf5_pandas_df_path,
+    negative_sample_type,
+):
     interactions_dl = InteractionsDataLoader(users=df_for_interactions['user_id'],
                                              items=df_for_interactions['item_id'],
-                                             num_negative_samples=5)
+                                             negative_sample_type=negative_sample_type,
+                                             num_negative_samples=3)
 
     hdf5_interactions_dl = HDF5InteractionsDataLoader(hdf5_path=hdf5_pandas_df_path,
                                                       user_col='user_id',
                                                       item_col='item_id',
-                                                      num_negative_samples=5)
+                                                      negative_sample_type=negative_sample_type,
+                                                      num_negative_samples=3)
 
     assert hdf5_interactions_dl.num_users == interactions_dl.num_users
     assert hdf5_interactions_dl.num_items == interactions_dl.num_items
+    assert hdf5_interactions_dl.negative_sample_type == interactions_dl.negative_sample_type
     assert hdf5_interactions_dl.num_negative_samples == interactions_dl.num_negative_samples
     assert hdf5_interactions_dl.num_interactions == interactions_dl.num_interactions
 
@@ -688,9 +758,17 @@ def test_hdf5_interactions_dataloader_attributes(df_for_interactions, hdf5_panda
         hdf5_interactions_dl.mat
 
 
-def test_all_data_loaders_output_equal(df_for_interactions, hdf5_pandas_df_path, tmpdir, capfd):
+@pytest.mark.parametrize('negative_sample_type', ['item', 'user'])
+def test_all_data_loaders_output_equal(
+    df_for_interactions,
+    hdf5_pandas_df_path,
+    tmpdir,
+    capfd,
+    negative_sample_type,
+):
     common_data_loader_kwargs = {
-        'num_negative_samples': 4,
+        'negative_sample_type': negative_sample_type,
+        'num_negative_samples': 3,
         'batch_size': 5,
         'shuffle': False,
         'drop_last': False,
@@ -710,8 +788,9 @@ def test_all_data_loaders_output_equal(df_for_interactions, hdf5_pandas_df_path,
                                                       **common_data_loader_kwargs)
 
     expected_repr = (
-        '{} object with 12 interactions between 6 users and 10 items, returning 4 negative samples'
-        ' per implicit interaction in non-shuffled batches of size 5.'
+        '{} object with 12 interactions between 6 users and 10 items, returning 3 negative'
+        f' {negative_sample_type} samples per implicit interaction in non-shuffled batches of '
+        'size 5.'
     )
 
     assert str(interactions_dl) == expected_repr.format(str(type(interactions_dl).__name__))

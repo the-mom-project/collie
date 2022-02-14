@@ -91,23 +91,31 @@ def df_for_interactions_with_duplicates():
     })
 
 
+@pytest.fixture(params=['user', 'item'])
+def negative_sample_types(request):
+    return request.param
+
+
 @pytest.fixture()
-def interactions_pandas(df_for_interactions):
+def interactions_pandas(df_for_interactions, negative_sample_types):
     return Interactions(users=df_for_interactions['user_id'],
                         items=df_for_interactions['item_id'],
                         ratings=df_for_interactions['ratings'],
+                        negative_sample_type=negative_sample_types,
                         check_num_negative_samples_is_valid=False)
 
 
 @pytest.fixture()
-def interactions_matrix(ratings_matrix_for_interactions):
+def interactions_matrix(ratings_matrix_for_interactions, negative_sample_types):
     return Interactions(mat=ratings_matrix_for_interactions,
+                        negative_sample_type=negative_sample_types,
                         check_num_negative_samples_is_valid=False)
 
 
 @pytest.fixture()
-def interactions_sparse_matrix(sparse_ratings_matrix_for_interactions):
+def interactions_sparse_matrix(sparse_ratings_matrix_for_interactions, negative_sample_types):
     return Interactions(mat=sparse_ratings_matrix_for_interactions,
+                        negative_sample_type=negative_sample_types,
                         check_num_negative_samples_is_valid=False)
 
 
