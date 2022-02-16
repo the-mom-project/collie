@@ -8,9 +8,9 @@ from collie.loss.metadata_utils import ideal_difference_from_metadata
 def warp_loss(
     positive_scores: torch.tensor,
     many_negative_scores: torch.tensor,
-    num_items: int,
-    positive_items: Optional[torch.tensor] = None,
-    negative_items: Optional[torch.tensor] = None,
+    num_ids: int,
+    positive_ids: Optional[torch.tensor] = None,
+    negative_ids: Optional[torch.tensor] = None,
     metadata: Optional[Dict[str, torch.tensor]] = dict(),
     metadata_weights: Optional[Dict[str, float]] = dict(),
 ) -> torch.tensor:
@@ -24,24 +24,24 @@ def warp_loss(
     Parameters
     ----------
     positive_scores: torch.tensor, 1-d
-        Tensor containing scores for known positive items of shape
+        Tensor containing scores for known positive items or users of shape
         ``num_negative_samples x batch_size``
     many_negative_scores: torch.tensor, 2-d
-        Iterable of tensors containing scores for many (n > 1) sampled negative items of shape
-        ``num_negative_samples x batch_size``. More tensors increase the likelihood of finding
+        Iterable of tensors containing scores for many (n > 1) sampled negative items or users of
+        shape ``num_negative_samples x batch_size``. More tensors increase the likelihood of finding
         ranking-violating pairs, but risk overfitting
-    num_items: int
-        Total number of items in the dataset
-    positive_items: torch.tensor, 1-d
-        Tensor containing ids for known positive items of shape
+    num_ids: int
+        Total number of either item IDs or user IDs in the dataset
+    positive_ids: torch.tensor, 1-d
+        Tensor containing IDs for known positive items or users of shape
         ``num_negative_samples x batch_size``. This is only needed if ``metadata`` is provided
-    negative_items: torch.tensor, 2-d
-        Tensor containing ids for sampled negative items of shape
+    negative_ids: torch.tensor, 2-d
+        Tensor containing IDs for sampled negative items or users of shape
         ``num_negative_samples x batch_size``. This is only needed if ``metadata`` is provided
     metadata: dict
         Keys should be strings identifying each metadata type that match keys in
-        ``metadata_weights``. Values should be a ``torch.tensor`` of shape (num_items x 1). Each
-        tensor should contain categorical metadata information about items (e.g. a number
+        ``metadata_weights``. Values should be a ``torch.tensor`` of shape (num_ids x 1). Each
+        tensor should contain categorical metadata information about items or users (e.g. a number
         representing the genre of the item)
     metadata_weights: dict
         Keys should be strings identifying each metadata type that match keys in ``metadata``.
@@ -70,13 +70,13 @@ def warp_loss(
         www.thespermwhale.com/jaseweston/papers/wsabie-ijcai.pdf.
 
     """
-    if negative_items is not None and positive_items is not None:
-        positive_items = positive_items.repeat([many_negative_scores.shape[0], 1])
+    if negative_ids is not None and positive_ids is not None:
+        positive_ids = positive_ids.repeat([many_negative_scores.shape[0], 1])
 
     if metadata is not None and len(metadata) > 0:
         ideal_difference = ideal_difference_from_metadata(
-            positive_items=positive_items,
-            negative_items=negative_items,
+            positive_ids=positive_ids,
+            negative_ids=negative_ids,
             metadata=metadata,
             metadata_weights=metadata_weights,
         ).transpose(1, 0)
@@ -110,14 +110,14 @@ def warp_loss(
 
     number_of_tries = (number_of_tries + 1).float()
 
-    # IMPORTANT CHANGE: normal WARP weighting has the numerator set to ``num_items - 1``, but we
-    # have found this does not penalize when the last item in a negative item sequence ranks above a
-    # positive item score. Adjusting the numerator as below penalizes this correctly. Additionally,
-    # adding a floor function to the numerator can also have the same negative effect of not
-    # not counting loss. See the original implementation as a comment below, and our modified,
-    # harsher calculation implemented below.
-    # loss_weights = torch.log(torch.floor((num_items - 1) / number_of_tries))
-    loss_weights = torch.log((num_items / number_of_tries))
+    # IMPORTANT CHANGE: normal WARP weighting has the numerator set to ``num_ids - 1``, but we
+    # have found this does not penalize when the last item or user in a negative item or user
+    # sequence ranks above a positive item or user score. Adjusting the numerator as below
+    # penalizes this correctly. Additionally, adding a floor function to the numerator can also
+    # have the same negative effect of not not counting loss. See the original implementation as
+    # a comment below, and our modified, harsher calculation implemented below.
+    # loss_weights = torch.log(torch.floor((num_ids - 1) / number_of_tries))
+    loss_weights = torch.log((num_ids / number_of_tries))
 
     # don't count loss if we used max number of attempts looking for a violation and didn't find one
     should_we_count_loss = (number_of_tries <= max_trials).float()

@@ -8,9 +8,9 @@ from collie.loss.metadata_utils import ideal_difference_from_metadata
 def hinge_loss(
     positive_scores: torch.tensor,
     negative_scores: torch.tensor,
-    num_items: Optional[Any] = None,
-    positive_items: Optional[torch.tensor] = None,
-    negative_items: Optional[torch.tensor] = None,
+    num_ids: Optional[Any] = None,
+    positive_ids: Optional[torch.tensor] = None,
+    negative_ids: Optional[torch.tensor] = None,
     metadata: Optional[Dict[str, torch.tensor]] = dict(),
     metadata_weights: Optional[Dict[str, float]] = dict(),
 ) -> torch.tensor:
@@ -25,21 +25,21 @@ def hinge_loss(
     Parameters
     ----------
     positive_scores: torch.tensor, 1-d
-        Tensor containing scores for known positive items
+        Tensor containing scores for known positive items or users
     negative_scores: torch.tensor, 1-d
-        Tensor containing scores for a single sampled negative item
-    num_items: Any
+        Tensor containing scores for a single sampled negative item or user
+    num_ids: Any
         Ignored, included only for compatability with WARP loss
-    positive_items: torch.tensor, 1-d
-        Tensor containing ids for known positive items of shape ``1 x batch_size``. This is only
-        needed if ``metadata`` is provided
-    negative_items: torch.tensor, 1-d
-        Tensor containing ids for randomly-sampled negative items of shape ``1 x batch_size``. This
-        is only needed if ``metadata`` is provided
+    positive_ids: torch.tensor, 1-d
+        Tensor containing IDs for known positive items or users of shape ``1 x batch_size``. This is
+        only needed if ``metadata`` is provided
+    negative_ids: torch.tensor, 1-d
+        Tensor containing IDs for randomly-sampled negative items or users of shape
+        ``1 x batch_size``. This is only needed if ``metadata`` is provided
     metadata: dict
         Keys should be strings identifying each metadata type that match keys in
-        ``metadata_weights``. Values should be a ``torch.tensor`` of shape (num_items x 1). Each
-        tensor should contain categorical metadata information about items (e.g. a number
+        ``metadata_weights``. Values should be a ``torch.tensor`` of shape (num_ids x 1). Each
+        tensor should contain categorical metadata information about items or users (e.g. a number
         representing the genre of the item)
     metadata_weights: dict
         Keys should be strings identifying each metadata type that match keys in ``metadata``.
@@ -72,8 +72,8 @@ def hinge_loss(
 
     if metadata is not None and len(metadata) > 0:
         ideal_difference = ideal_difference_from_metadata(
-            positive_items=positive_items,
-            negative_items=negative_items,
+            positive_ids=positive_ids,
+            negative_ids=negative_ids,
             metadata=metadata,
             metadata_weights=metadata_weights,
         )
@@ -88,9 +88,9 @@ def hinge_loss(
 def adaptive_hinge_loss(
     positive_scores: torch.tensor,
     many_negative_scores: torch.tensor,
-    num_items: Optional[Any] = None,
-    positive_items: Optional[torch.tensor] = None,
-    negative_items: Optional[torch.tensor] = None,
+    num_ids: Optional[Any] = None,
+    positive_ids: Optional[torch.tensor] = None,
+    negative_ids: Optional[torch.tensor] = None,
     metadata: Optional[Dict[str, torch.tensor]] = dict(),
     metadata_weights: Optional[Dict[str, float]] = dict(),
 ) -> torch.tensor:
@@ -108,24 +108,24 @@ def adaptive_hinge_loss(
     Parameters
     ----------
     positive_scores: torch.tensor, 1-d
-        Tensor containing scores for known positive items of shape
+        Tensor containing scores for known positive items or users of shape
         ``num_negative_samples x batch_size``
     many_negative_scores: torch.tensor, 2-d
-        Iterable of tensors containing scores for many (n > 1) sampled negative items of shape
-        ``num_negative_samples x batch_size``. More tensors increase the likelihood of finding
+        Iterable of tensors containing scores for many (n > 1) sampled negative items or users of
+        shape ``num_negative_samples x batch_size``. More tensors increase the likelihood of finding
         ranking-violating pairs, but risk overfitting
-    num_items: Any
+    num_ids: Any
         Ignored, included only for compatability with WARP loss
-    positive_items: torch.tensor, 1-d
-        Tensor containing ids for known positive items of shape
+    positive_ids: torch.tensor, 1-d
+        Tensor containing IDs for known positive items or users of shape
         ``num_negative_samples x batch_size``. This is only needed if ``metadata`` is provided
-    negative_items: torch.tensor, 2-d
-        Tensor containing ids for sampled negative items of shape
+    negative_ids: torch.tensor, 2-d
+        Tensor containing IDs for sampled negative items or users of shape
         ``num_negative_samples x batch_size``. This is only needed if ``metadata`` is provided
     metadata: dict
         Keys should be strings identifying each metadata type that match keys in
-        ``metadata_weights``. Values should be a ``torch.tensor`` of shape (num_items x 1). Each
-        tensor should contain categorical metadata information about items (e.g. a number
+        ``metadata_weights``. Values should be a ``torch.tensor`` of shape (num_ids x 1). Each
+        tensor should contain categorical metadata information about items or users (e.g. a number
         representing the genre of the item)
     metadata_weights: dict
         Keys should be strings identifying each metadata type that match keys in ``metadata``.
@@ -156,16 +156,16 @@ def adaptive_hinge_loss(
     """
     highest_negative_scores, highest_negative_inds = torch.max(many_negative_scores, 0)
 
-    if negative_items is not None and positive_items is not None:
-        negative_items = (
-            negative_items[highest_negative_inds, torch.arange(len(positive_items))].squeeze()
+    if negative_ids is not None and positive_ids is not None:
+        negative_ids = (
+            negative_ids[highest_negative_inds, torch.arange(len(positive_ids))].squeeze()
         )
 
     return hinge_loss(
         positive_scores,
         highest_negative_scores.squeeze(),
-        positive_items=positive_items,
-        negative_items=negative_items,
+        positive_ids=positive_ids,
+        negative_ids=negative_ids,
         metadata=metadata,
         metadata_weights=metadata_weights,
     )
