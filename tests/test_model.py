@@ -79,6 +79,7 @@ def test_basepipeline_does_not_initialize(train_val_implicit_data):
 
 @pytest.mark.parametrize('change_to_make', ['num_users',
                                             'num_items',
+                                            'negative_sample_type',
                                             'num_negative_samples',
                                             'bad_train_num_negative_samples'])
 def test_mismatched_train_and_val_loaders(train_val_implicit_data, change_to_make):
@@ -95,6 +96,9 @@ def test_mismatched_train_and_val_loaders(train_val_implicit_data, change_to_mak
     elif change_to_make == 'num_items':
         train.num_items = 1
         val.num_items = 2
+    elif change_to_make == 'negative_sample_type':
+        train.negative_sample_type = 'item'
+        val.negative_sample_type = 'user'
     elif change_to_make == 'num_negative_samples':
         train.num_negative_samples = 1
         val.num_negative_samples = 2

@@ -619,22 +619,22 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                     neg_ids.shape[0], len(users)
                 )
                 pos_ids = users
-                num_ids = self.hparams.num_items,
+                num_ids = self.hparams.num_items
             elif self.train_loader.negative_sample_type == 'user':
                 items_repeated = items.repeat(neg_ids.shape[0])
                 neg_preds = self(neg_ids_flattened, items_repeated).view(
-                    neg_ids.shape[0], len(items)  # TODO does this need to switch?
+                    neg_ids.shape[0], len(items)
                 )
                 pos_ids = items
-                num_ids = self.hparams.num_users,
+                num_ids = self.hparams.num_users
 
             # implicit loss function
             loss = self.loss_function(
                 pos_preds,
                 neg_preds,
                 num_ids=num_ids,
-                positive_items=pos_ids,
-                negative_items=neg_ids,
+                positive_ids=pos_ids,
+                negative_ids=neg_ids,
                 metadata=self.hparams.metadata_for_loss,
                 metadata_weights=self.hparams.metadata_for_loss_weights,
             )
