@@ -51,6 +51,19 @@ def movielens_implicit_interactions(movielens_implicit_df):
 
 
 @pytest.fixture(scope='session')
+def movielens_implicit_interactions_user_negative_sample_type(
+    movielens_implicit_df
+):
+    return Interactions(users=movielens_implicit_df['user_id'],
+                        items=movielens_implicit_df['item_id'],
+                        ratings=movielens_implicit_df['rating'],
+                        negative_sample_type='user',
+                        num_negative_samples=10,
+                        max_number_of_samples_to_consider=200,
+                        allow_missing_ids=True)
+
+
+@pytest.fixture(scope='session')
 def movielens_explicit_interactions(movielens_explicit_df):
     return ExplicitInteractions(users=movielens_explicit_df['user_id'],
                                 items=movielens_explicit_df['item_id'],
@@ -67,6 +80,18 @@ def train_val_implicit_pandas_data(movielens_implicit_df):
 def train_val_implicit_data(movielens_implicit_interactions):
     return stratified_split(
         interactions=movielens_implicit_interactions,
+        val_p=0.,
+        test_p=0.2,
+        seed=42,
+    )
+
+
+@pytest.fixture(scope='session')
+def train_val_implicit_data_user_negative_sample_type(
+    movielens_implicit_interactions_user_negative_sample_type
+):
+    return stratified_split(
+        interactions=movielens_implicit_interactions_user_negative_sample_type,
         val_p=0.,
         test_p=0.2,
         seed=42,

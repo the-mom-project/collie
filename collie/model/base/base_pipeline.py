@@ -185,10 +185,9 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                 ):
                     assert self.train_loader.negative_sample_type == \
                         self.val_loader.negative_sample_type, (
-                            'Training and val ``negative_sample_type`` property must both equal '
-                            '``item`` or both equal ``user``, not: '
-                            f'{self.train_loader.negative_sample_type}'
-                            f' and {self.val_loader.negative_sample_type}, respectively.'
+                            'Training and val ``negative_sample_type`` property must be equal: '
+                            f'{self.train_loader.negative_sample_type} != '
+                            f'{self.val_loader.negative_sample_type}.'
                         )
 
                 if (

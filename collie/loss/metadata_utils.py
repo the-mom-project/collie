@@ -10,7 +10,7 @@ def ideal_difference_from_metadata(
     metadata_weights: Optional[Dict[str, float]],
 ) -> torch.tensor:
     """
-    Helper function to calculate the ideal score difference between the positive and negative ids.
+    Helper function to calculate the ideal score difference between the positive and negative IDs.
 
     Without considering metadata, the ideal score difference would be 1.0 (since the function looks
     at a pair of items or users, one positive item and one negative item or one positive user and
