@@ -180,13 +180,25 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                 )
 
                 if (
+                    hasattr(self.train_loader, 'negative_sample_type')
+                    or hasattr(self.val_loader, 'negative_sample_type')
+                ):
+                    assert self.train_loader.negative_sample_type == \
+                        self.val_loader.negative_sample_type, (
+                            'Training and val ``negative_sample_type`` property must be equal: '
+                            f'{self.train_loader.negative_sample_type} != '
+                            f'{self.val_loader.negative_sample_type}.'
+                        )
+
+                if (
                     hasattr(self.train_loader, 'num_negative_samples')
                     or hasattr(self.val_loader, 'num_negative_samples')
                 ):
                     num_negative_samples_error = (
                         'Training and val ``num_negative_samples`` property must both equal ``1``'
-                        f' or both be greater than ``1``, not: {self.train_loader.num_items} and'
-                        f' {self.val_loader.num_items}, respectively.'
+                        ' or both be greater than ``1``, not: '
+                        f'{self.train_loader.num_negative_samples}'
+                        f' and {self.val_loader.num_negative_samples}, respectively.'
                     )
                     if self.train_loader.num_negative_samples == 1:
                         assert self.val_loader.num_negative_samples == 1, num_negative_samples_error
@@ -275,7 +287,12 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
         # followed by implicit losses
         self.hparams._is_implicit = True
-        if not hasattr(self.train_loader, 'num_negative_samples'):
+        if not hasattr(self.train_loader, 'negative_sample_type'):
+            raise ValueError(
+                '``negative_sample_type`` attribute not found in ``train_loader`` - are you using '
+                'explicit data with an implicit loss function?'
+            )
+        elif not hasattr(self.train_loader, 'num_negative_samples'):
             raise ValueError(
                 '``num_negative_samples`` attribute not found in ``train_loader`` - are you using '
                 'explicit data with an implicit loss function?'
@@ -571,7 +588,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
               - Expected Meaning
               - Model Type
             * - ``((X, Y), Z)``
-              - ``((user IDs, item IDs), negative item IDs)``
+              - ``((user IDs, item IDs), negative item or user IDs)``
               - **Implicit**
             * - ``(X, Y, Z)``
               - ``(user IDs, item IDs, ratings)``
@@ -583,30 +600,40 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                 raise ValueError('Explicit loss with implicit data is invalid!')
 
             # implicit data
-            ((users, pos_items), neg_items) = batch
+            ((users, items), neg_ids) = batch
 
             users = users.long()
-            pos_items = pos_items.long()
+            items = items.long()
             # TODO: see if there is a way to not have to transpose each time - probably a bit costly
-            neg_items = torch.transpose(neg_items, 0, 1).long()
+            neg_ids = torch.transpose(neg_ids, 0, 1).long()
 
             # get positive item predictions from model
-            pos_preds = self(users, pos_items)
+            pos_preds = self(users, items)
 
-            # get negative item predictions from model
-            users_repeated = users.repeat(neg_items.shape[0])
-            neg_items_flattened = neg_items.flatten()
-            neg_preds = self(users_repeated, neg_items_flattened).view(
-                neg_items.shape[0], len(users)
-            )
+            # get negative predictions from model
+            neg_ids_flattened = neg_ids.flatten()
+            if self.train_loader.negative_sample_type == 'item':
+                users_repeated = users.repeat(neg_ids.shape[0])
+                neg_preds = self(users_repeated, neg_ids_flattened).view(
+                    neg_ids.shape[0], len(users)
+                )
+                pos_ids = users
+                num_ids = self.hparams.num_items
+            elif self.train_loader.negative_sample_type == 'user':
+                items_repeated = items.repeat(neg_ids.shape[0])
+                neg_preds = self(neg_ids_flattened, items_repeated).view(
+                    neg_ids.shape[0], len(items)
+                )
+                pos_ids = items
+                num_ids = self.hparams.num_users
 
             # implicit loss function
             loss = self.loss_function(
                 pos_preds,
                 neg_preds,
-                num_items=self.hparams.num_items,
-                positive_items=pos_items,
-                negative_items=neg_items,
+                num_ids=num_ids,
+                positive_ids=pos_ids,
+                negative_ids=neg_ids,
                 metadata=self.hparams.metadata_for_loss,
                 metadata_weights=self.hparams.metadata_for_loss_weights,
             )

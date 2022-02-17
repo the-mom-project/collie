@@ -29,6 +29,7 @@ def _subset_interactions(interactions: BaseInteractions,
     if isinstance(interactions, Interactions):
         return Interactions(
             mat=coo_mat,
+            negative_sample_type=interactions.negative_sample_type,
             num_negative_samples=interactions.num_negative_samples,
             allow_missing_ids=True,
             remove_duplicate_user_item_pairs=False,

@@ -60,6 +60,50 @@ def implicit_model_no_lightning(train_val_implicit_data, gpu_count):
 
 
 @pytest.fixture(scope='session')
+def implicit_model_user_negative_sample_type(
+    train_val_implicit_data_user_negative_sample_type,
+    gpu_count
+):
+    train, val = train_val_implicit_data_user_negative_sample_type
+    model = MatrixFactorizationModel(train=train,
+                                     val=val,
+                                     embedding_dim=10,
+                                     lr=1e-1)
+    model_trainer = CollieTrainer(model=model,
+                                  gpus=gpu_count,
+                                  max_epochs=10,
+                                  deterministic=True,
+                                  logger=False,
+                                  enable_checkpointing=False)
+    model_trainer.fit(model)
+    model.eval()
+
+    return model
+
+
+@pytest.fixture(scope='session')
+def implicit_model_no_lightning_user_negative_sample_type(
+    train_val_implicit_data_user_negative_sample_type,
+    gpu_count
+):
+    train, val = train_val_implicit_data_user_negative_sample_type
+    model = MatrixFactorizationModel(train=train,
+                                     val=val,
+                                     embedding_dim=10,
+                                     lr=1e-1)
+    model_trainer = CollieMinimalTrainer(model=model,
+                                         gpus=gpu_count,
+                                         max_epochs=10,
+                                         deterministic=True,
+                                         logger=False,
+                                         early_stopping_patience=False)
+    model_trainer.fit(model)
+    model.freeze()
+
+    return model
+
+
+@pytest.fixture(scope='session')
 def explicit_model(train_val_explicit_data, gpu_count):
     train, val = train_val_explicit_data
     model = MatrixFactorizationModel(train=train,

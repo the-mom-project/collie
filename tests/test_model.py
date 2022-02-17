@@ -79,6 +79,7 @@ def test_basepipeline_does_not_initialize(train_val_implicit_data):
 
 @pytest.mark.parametrize('change_to_make', ['num_users',
                                             'num_items',
+                                            'negative_sample_type',
                                             'num_negative_samples',
                                             'bad_train_num_negative_samples'])
 def test_mismatched_train_and_val_loaders(train_val_implicit_data, change_to_make):
@@ -95,6 +96,9 @@ def test_mismatched_train_and_val_loaders(train_val_implicit_data, change_to_mak
     elif change_to_make == 'num_items':
         train.num_items = 1
         val.num_items = 2
+    elif change_to_make == 'negative_sample_type':
+        train.negative_sample_type = 'item'
+        val.negative_sample_type = 'user'
     elif change_to_make == 'num_negative_samples':
         train.num_negative_samples = 1
         val.num_negative_samples = 2
@@ -780,6 +784,51 @@ def test_implicit_model(implicit_model,
     # trials of training the model and using the mean - 5 * std. dev.
     # as the minimum score the model must achieve to pass the test.
     assert mapk_score > 0.044
+
+
+@pytest.mark.parametrize('model_type', ['with_lightning', 'no_lightning'])
+def test_implicit_model_user_negative_sample_type(
+    implicit_model_user_negative_sample_type,
+    implicit_model_no_lightning_user_negative_sample_type,
+    train_val_implicit_data_user_negative_sample_type,
+    model_type
+):
+    if model_type == 'with_lightning':
+        model = implicit_model_user_negative_sample_type
+    elif model_type == 'no_lightning':
+        model = implicit_model_no_lightning_user_negative_sample_type
+
+    train, val = train_val_implicit_data_user_negative_sample_type
+
+    item_preds = model.get_item_predictions(user_id=0,
+                                            unseen_items_only=True,
+                                            sort_values=True)
+
+    assert isinstance(item_preds, pd.Series)
+    assert len(item_preds) > 0
+    assert len(item_preds) < len(train)
+
+    item_similarities = model.item_item_similarity(item_id=42)
+    assert item_similarities.index[0] == 42
+
+    user_preds = model.get_user_predictions(item_id=0,
+                                            unseen_users_only=True,
+                                            sort_values=True)
+
+    assert isinstance(user_preds, pd.Series)
+    assert len(user_preds) > 0
+    assert len(user_preds) < len(train)
+
+    user_similarities = model.user_user_similarity(user_id=42)
+    assert user_similarities.index[0] == 42
+    # TODO: negative user sampling is not implemented in model metrics yet
+    # uncomment the following lines once implemented
+    # mapk_score = evaluate_in_batches([mapk], val, model)
+
+    # The metrics used for evaluation have been determined through 30
+    # trials of training the model and using the mean - 5 * std. dev.
+    # as the minimum score the model must achieve to pass the test.
+    # assert mapk_score > 0.044
 
 
 @pytest.mark.parametrize('model_type', ['with_lightning', 'no_lightning'])

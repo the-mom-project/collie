@@ -12,17 +12,17 @@ SCORES = torch.tensor([
 
 
 @pytest.fixture()
-def positive_items():
+def positive_ids():
     return torch.tensor([0, 1, 2, 3])
 
 
 @pytest.fixture()
-def negative_items():
+def negative_ids():
     return torch.tensor([4, 5, 6, 7])
 
 
 @pytest.fixture()
-def many_negative_items():
+def many_negative_ids():
     return torch.tensor([
         [4, 5, 6, 7],
         [8, 9, 10, 11],
@@ -32,18 +32,18 @@ def many_negative_items():
 
 
 @pytest.fixture()
-def positive_scores(positive_items):
-    return SCORES[positive_items]
+def positive_scores(positive_ids):
+    return SCORES[positive_ids]
 
 
 @pytest.fixture()
-def negative_scores(negative_items):
-    return SCORES[negative_items]
+def negative_scores(negative_ids):
+    return SCORES[negative_ids]
 
 
 @pytest.fixture()
-def many_negative_scores(many_negative_items):
-    return SCORES[many_negative_items]
+def many_negative_scores(many_negative_ids):
+    return SCORES[many_negative_ids]
 
 
 @pytest.fixture()
