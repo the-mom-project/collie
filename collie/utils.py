@@ -165,29 +165,31 @@ def convert_to_implicit(explicit_df: pd.DataFrame,
     return implicit_df.reset_index(drop=True)
 
 
-def remove_users_with_fewer_than_n_interactions(df: pd.DataFrame,
-                                                min_num_of_interactions: int = 3,
-                                                user_col: str = 'user_id') -> pd.DataFrame:
+def remove_users_or_items_with_fewer_than_n_interactions(
+    df: pd.DataFrame,
+    min_num_of_interactions: int = 3,
+    user_or_item_col: str = 'user_id'
+) -> pd.DataFrame:
     """
-    Remove DataFrame rows with users who appear fewer than ``min_num_of_interactions`` times.
+    Remove DataFrame rows with users or items who appear fewer than ``min_num_of_interactions`` times.
 
     Parameters
     ----------
     df: pd.DataFrame
     min_num_of_interactions: int
         Minimum number of interactions a user can have while remaining in ``filtered_df``
-    user_col: str
-        Column name for the user IDs
+    user_or_item_col: str
+        Column name for the user IDs or item IDs
 
     Returns
     -------
     filtered_df: pd.DataFrame
 
     """
-    value_counts_df = df[user_col].value_counts()
+    value_counts_df = df[user_or_item_col].value_counts()
 
     return (
-        df[~df[user_col].isin(
+        df[~df[user_or_item_col].isin(
             value_counts_df[value_counts_df < min_num_of_interactions].index
         )].reset_index(drop=True)
     )

@@ -45,6 +45,7 @@ def movielens_implicit_interactions(movielens_implicit_df):
     return Interactions(users=movielens_implicit_df['user_id'],
                         items=movielens_implicit_df['item_id'],
                         ratings=movielens_implicit_df['rating'],
+                        negative_sample_type='item',
                         num_negative_samples=10,
                         max_number_of_samples_to_consider=200,
                         allow_missing_ids=True)

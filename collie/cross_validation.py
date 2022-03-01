@@ -145,14 +145,16 @@ def stratified_split(interactions: BaseInteractions,
                      force_split: bool = False) -> Tuple[BaseInteractions, ...]:
     """
     Split an ``Interactions`` instance into train, validate, and test datasets in a stratified
-    manner such that each user appears at least once in each of the datasets.
+    manner such that each user or item appears at least once in each of the datasets. Whether
+    the split is on user of item is determined by the input ``Interactions`` instance.
 
-    This split guarantees that every user will be represented in the training, validation, and
-    testing datasets given they appear in ``interactions`` at least three times. If ``val_p ==
+    This split guarantees that every user or item will be represented in the training, validation,
+    and testing datasets given they appear in ``interactions`` at least three times. If ``val_p ==
     0``, they will appear in the training and testing datasets given they appear at least two times.
-    If a user appears fewer than this number of times, a ``ValueError`` will
-    be raised. To filter users with fewer than ``n`` points out, use
-    ``collie.utils.remove_users_with_fewer_than_n_interactions``.
+    If a user or item appears fewer than this number of times, a ``ValueError`` will be raised. To
+    ignore this error and force users or items with only a single interaction into the training set
+    set ``force_split`` to ``True``. To filter users or items with fewer than ``n`` points out, use
+    ``collie.utils.remove_users_or_items_with_fewer_than_n_interactions``.  # TODO name this function
 
     This is computationally more complex than ``random_split``, but produces a more representative
     data split. Note that when ``val_p > 0``, the algorithm will perform the data split twice,
@@ -179,9 +181,9 @@ def stratified_split(interactions: BaseInteractions,
     seed: int
         Random seed for splits
     force_split: bool
-        Ignore error raised when a user in the dataset has only a single interaction. Normally,
-        a ``ValueError`` is raised when this occurs. When ``force_split=True``, however,
-        users with a single interaction will be placed in the training set and an error will NOT be
+        Ignore error raised when a user or item in the dataset has only a single interaction. Normally,
+        a ``ValueError`` is raised when this occurs. When ``force_split=True``, however, users or items
+        with a single interaction will be placed in the training set and an error will NOT be
         raised
 
     Returns
@@ -237,24 +239,27 @@ def _stratified_split(interactions: BaseInteractions,
                       processes: int,
                       seed: int,
                       force_split: bool) -> Tuple[Interactions, Interactions]:
-    users = interactions.mat.row
-    unique_users = set(users)
-
+    if interactions.negative_sample_type == 'item':
+        users_or_items = interactions.mat.row
+    elif interactions.negative_sample_type == 'user':
+        users_or_items = interactions.mat.col
+    unique_users_or_items = set(users_or_items)
     # while we should be able to run ``np.where(users == user)[0]`` to find all items each user
     # interacted with, by building up a dictionary to get these values instead, we can achieve the
     # same result in O(N) complexity rather than O(M * N), a nice timesave to have when working with
     # larger datasets
-    all_idxs_for_users_dict = defaultdict(list)
-    for idx, user in enumerate(users):
-        all_idxs_for_users_dict[user].append(idx)
+    all_idxs_for_users_or_items_dict = defaultdict(list)
+    for idx, user_or_item in enumerate(users_or_items):
+        all_idxs_for_users_or_items_dict[user_or_item].append(idx)
 
     if processes == 0:
         test_idxs = [
-            _stratified_split_parallel_worker(idxs_to_split=all_idxs_for_users_dict[user],
+            _stratified_split_parallel_worker(interactions=interactions,
+                                              idxs_to_split=all_idxs_for_users_or_items_dict[user_or_item],
                                               test_p=test_p,
-                                              seed=(seed + user),
+                                              seed=(seed + user_or_item),
                                               force_split=force_split)
-            for user in unique_users
+            for user_or_item in unique_users_or_items
         ]
     else:
         # run the function below in parallel for each user
@@ -262,17 +267,18 @@ def _stratified_split(interactions: BaseInteractions,
         # actual randomness so users with the same number of interactions are not split the exact
         # same way
         test_idxs = Parallel(n_jobs=processes)(
-            delayed(_stratified_split_parallel_worker)(all_idxs_for_users_dict[user],
+            delayed(_stratified_split_parallel_worker)(interactions,
+                                                       all_idxs_for_users_or_items_dict[user_or_item],
                                                        test_p,
-                                                       seed + user,
+                                                       seed + user_or_item,
                                                        force_split)
-            for user in unique_users
+            for user_or_item in unique_users_or_items
         )
 
     # reduce the list of lists down to a 1-d list
     test_idxs = functools.reduce(operator.iconcat, test_idxs, [])
     # find all indices not in test set - they are now train
-    train_idxs = list(set(range(len(users))) - set(test_idxs))
+    train_idxs = list(set(range(len(users_or_items))) - set(test_idxs))
 
     train_interactions = _subset_interactions(interactions=interactions,
                                               idxs=train_idxs)
@@ -282,7 +288,8 @@ def _stratified_split(interactions: BaseInteractions,
     return train_interactions, test_interactions
 
 
-def _stratified_split_parallel_worker(idxs_to_split: Iterable[Any],
+def _stratified_split_parallel_worker(interactions: BaseInteractions,
+                                      idxs_to_split: Iterable[Any],
                                       test_p: float,
                                       seed: int,
                                       force_split: bool) -> np.array:
@@ -296,10 +303,12 @@ def _stratified_split_parallel_worker(idxs_to_split: Iterable[Any],
         if 'the resulting train set will be empty' in str(ve):
             if force_split is False:
                 raise ValueError(
-                    'Unable to stratify split on users - the ``interactions`` object contains users'
-                    ' with a single interaction. Either set ``force_split = True`` to put all users'
-                    ' with a single interaction in the training set or run'
-                    ' ``collie.utils.remove_users_with_fewer_than_n_interactions`` first.'
+                    f'Unable to stratify split on {interactions.negative_sample_type}s - the '
+                    f'``interactions`` object contains {interactions.negative_sample_type}s'
+                    ' with a single interaction. Either set ``force_split = True`` to put all '
+                    f'{interactions.negative_sample_type}s with a single interaction in the training'
+                    'set or run ``collie.utils.remove_users_or_items_with_fewer_than_n_interactions``' # TODO name this function
+                    ' first.'
                 )
             else:
                 test_idxs = []

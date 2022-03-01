@@ -8,23 +8,27 @@ import torch
 from torchmetrics import Metric
 from torchmetrics.functional import auroc
 from tqdm.auto import tqdm
+from typing_extensions import Literal
 
 import collie
 from collie.interactions import ExplicitInteractions, Interactions, InteractionsDataLoader
 from collie.model import BasePipeline
 
 
-def _get_user_item_pairs(user_ids: Union[np.array, torch.tensor],
-                         n_items: int,
+def _get_user_item_pairs(model: BasePipeline,
+                         user_or_item_ids: Union[np.array, torch.tensor],
+                         n_items_or_users: int,
                          device: Union[str, torch.device]) -> Tuple[torch.tensor, torch.tensor]:
     """
-    Create tensors pairing each input user ID with each item ID.
+    Create tensors pairing each input user ID with each item ID or vice versa.  # TODO fix this docstring
 
     Parameters
     ----------
-    user_ids: np.array or torch.tensor, 1-d
+    model: collie.model.BasePipeline
+        Model that can take a (user_id, item_id) pair as input and return a recommendation score
+    user_or_item_ids: np.array or torch.tensor, 1-d
         Iterable[int] of users to score
-    n_items: int
+    n_items_or_users: int
         Number of items in the training data
     device: string
         Device to store tensors on
@@ -49,31 +53,44 @@ def _get_user_item_pairs(user_ids: Union[np.array, torch.tensor],
         np.array([0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3])
 
     """
+    try:
+        negative_sample_type = model.train_loader.negative_sample_type
+    except AttributeError: # explicit models do not have ``negative_sample_type``
+        negative_sample_type = 'item'
+
     # Added because sometimes we call this function with ``n_items`` as ``np.int64`` type which
     # breaks ``repeat_interleave``.
-    if isinstance(n_items, np.int64):
-        n_items = n_items.item()
+    if isinstance(n_items_or_users, np.int64):
+        n_items_or_users = n_items_or_users.item()
 
-    users = torch.tensor(
-        user_ids,
+    tensor1 = torch.tensor(  # TODO rename these
+        user_or_item_ids,
         dtype=torch.int64,
         requires_grad=False,
         device=device,
-    ).repeat_interleave(n_items)
+    ).repeat_interleave(n_items_or_users)
 
-    items = torch.arange(
+    tensor2 = torch.arange(
         start=0,
-        end=n_items,
+        end=n_items_or_users,
         requires_grad=False,
         device=device,
-    ).repeat(len(user_ids))
+    ).repeat(len(user_or_item_ids))
+
+    if negative_sample_type == 'item':
+        users = tensor1
+        items = tensor2
+
+    elif negative_sample_type == 'user':
+        users = tensor2
+        items = tensor1
 
     return users, items
 
 
 def get_preds(model: BasePipeline,
-              user_ids: Union[np.array, torch.tensor],
-              n_items: int,
+              user_or_item_ids: Union[np.array, torch.tensor],
+              n_items_or_users: int,
               device: Union[str, torch.device]) -> torch.tensor:
     """
     Returns a ``n_users x n_items`` tensor with the item IDs of recommended products for each user
@@ -83,9 +100,9 @@ def get_preds(model: BasePipeline,
     ----------
     model: collie.model.BasePipeline
         Model that can take a (user_id, item_id) pair as input and return a recommendation score
-    user_ids: np.array or torch.tensor
+    user_or_item_ids: np.array or torch.tensor
         Iterable[int] of users to score
-    n_items: int
+    n_items_or_users: int
         Number of items in the training data
     device: string
         Device torch should use
@@ -96,30 +113,33 @@ def get_preds(model: BasePipeline,
         Tensor of shape ``n_users x n_items``
 
     """
-    user, item = _get_user_item_pairs(user_ids, n_items, device)
+    user, item = _get_user_item_pairs(model, user_or_item_ids, n_items_or_users, device)
 
     with torch.no_grad():
         predicted_scores = model(user, item)
 
-    return predicted_scores.view(-1, n_items)
+    return predicted_scores.view(-1, n_items_or_users)
 
 
 def _get_labels(targets: csr_matrix,
-                user_ids: Union[np.array, torch.tensor],
+                negative_sample_type: Literal['item', 'user'] = 'item',
+                user_or_item_ids: Union[np.array, torch.tensor],
                 preds: Union[np.array, torch.tensor],
                 device: str) -> torch.tensor:
     """
-    Returns a binary array indicating which of the recommended products are in each user's target
-    set.
+    Returns a binary array indicating which of the recommended items or users are in each user's or
+    item's target set, respectively.
 
     Parameters
     ----------
     targets: scipy.sparse.csr_matrix
         Interaction matrix containing user and item IDs
-    user_ids: np.array or torch.tensor
-        Users corresponding to the recommendations in the top k predictions
+    negative_sample_type: str
+        Type of negative sampling the Interaction matrix, ``targets``, used
+    user_or_item_ids: np.array or torch.tensor
+        Users or items corresponding to the recommendations in the top k predictions
     preds: torch.tensor
-        Top ``k`` item IDs to recommend to each user of shape (n_users x k)
+        Top ``k`` IDs to recommend to each user of shape (n_users_or_items x k)
     device: string
         Device torch should use
 
@@ -129,15 +149,24 @@ def _get_labels(targets: csr_matrix,
         Tensor with the same dimensions as input ``preds``
 
     """
-    return torch.tensor(
-        (targets[user_ids[:, None], np.array(preds.detach().cpu())] > 0)
-        .astype('double')
-        .toarray(),
-        requires_grad=False,
-        device=device,
-    )
+    if negative_sample_type == 'item':
+        return torch.tensor(
+            (targets[user_or_item_ids[:, None], np.array(preds.detach().cpu())] > 0)
+            .astype('double')
+            .toarray(),
+            requires_grad=False,
+            device=device,
+        )
+    elif negative_sample_type == 'user':
+        return torch.tensor(
+            (targets[np.array(preds.detach().cpu()), user_or_item_ids[:, None]] > 0)
+            .astype('double')
+            .toarray(),
+            requires_grad=False,
+            device=device,
+        )
 
-
+# start here
 def mapk(targets: csr_matrix,
          user_ids: Union[np.array, torch.tensor],
          preds: Union[np.array, torch.tensor],
