@@ -154,7 +154,7 @@ def stratified_split(interactions: BaseInteractions,
     If a user or item appears fewer than this number of times, a ``ValueError`` will be raised. To
     ignore this error and force users or items with only a single interaction into the training set
     set ``force_split`` to ``True``. To filter users or items with fewer than ``n`` points out, use
-    ``collie.utils.remove_users_or_items_with_fewer_than_n_interactions``.  # TODO name this function
+    ``collie.utils.remove_users_or_items_with_fewer_than_n_interactions``.
 
     This is computationally more complex than ``random_split``, but produces a more representative
     data split. Note that when ``val_p > 0``, the algorithm will perform the data split twice,
@@ -181,10 +181,10 @@ def stratified_split(interactions: BaseInteractions,
     seed: int
         Random seed for splits
     force_split: bool
-        Ignore error raised when a user or item in the dataset has only a single interaction. Normally,
-        a ``ValueError`` is raised when this occurs. When ``force_split=True``, however, users or items
-        with a single interaction will be placed in the training set and an error will NOT be
-        raised
+        Ignore error raised when a user or item in the dataset has only a single interaction.
+        Normally, a ``ValueError`` is raised when this occurs. When ``force_split=True``, however,
+        users or items with a single interaction will be placed in the training set and an error
+        will NOT be raised
 
     Returns
     -------
@@ -254,11 +254,13 @@ def _stratified_split(interactions: BaseInteractions,
 
     if processes == 0:
         test_idxs = [
-            _stratified_split_parallel_worker(interactions=interactions,
-                                              idxs_to_split=all_idxs_for_users_or_items_dict[user_or_item],
-                                              test_p=test_p,
-                                              seed=(seed + user_or_item),
-                                              force_split=force_split)
+            _stratified_split_parallel_worker(
+                interactions=interactions,
+                idxs_to_split=all_idxs_for_users_or_items_dict[user_or_item],
+                test_p=test_p,
+                seed=(seed + user_or_item),
+                force_split=force_split
+            )
             for user_or_item in unique_users_or_items
         ]
     else:
@@ -267,11 +269,13 @@ def _stratified_split(interactions: BaseInteractions,
         # actual randomness so users with the same number of interactions are not split the exact
         # same way
         test_idxs = Parallel(n_jobs=processes)(
-            delayed(_stratified_split_parallel_worker)(interactions,
-                                                       all_idxs_for_users_or_items_dict[user_or_item],
-                                                       test_p,
-                                                       seed + user_or_item,
-                                                       force_split)
+            delayed(_stratified_split_parallel_worker)(
+                interactions,
+                all_idxs_for_users_or_items_dict[user_or_item],
+                test_p,
+                seed + user_or_item,
+                force_split
+            )
             for user_or_item in unique_users_or_items
         )
 
@@ -306,8 +310,9 @@ def _stratified_split_parallel_worker(interactions: BaseInteractions,
                     f'Unable to stratify split on {interactions.negative_sample_type}s - the '
                     f'``interactions`` object contains {interactions.negative_sample_type}s'
                     ' with a single interaction. Either set ``force_split = True`` to put all '
-                    f'{interactions.negative_sample_type}s with a single interaction in the training'
-                    'set or run ``collie.utils.remove_users_or_items_with_fewer_than_n_interactions``' # TODO name this function
+                    f'{interactions.negative_sample_type}s with a single interaction in the'
+                    'training set or run '
+                    '``collie.utils.remove_users_or_items_with_fewer_than_n_interactions``'
                     ' first.'
                 )
             else:

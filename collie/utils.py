@@ -171,7 +171,8 @@ def remove_users_or_items_with_fewer_than_n_interactions(
     user_or_item_col: str = 'user_id'
 ) -> pd.DataFrame:
     """
-    Remove DataFrame rows with users or items who appear fewer than ``min_num_of_interactions`` times.
+    Remove DataFrame rows with users or items who appear fewer than ``min_num_of_interactions``
+    times.
 
     Parameters
     ----------

@@ -20,25 +20,25 @@ def _get_user_item_pairs(model: BasePipeline,
                          n_items_or_users: int,
                          device: Union[str, torch.device]) -> Tuple[torch.tensor, torch.tensor]:
     """
-    Create tensors pairing each input user ID with each item ID or vice versa.  # TODO fix this docstring
+    Create tensors pairing each input user ID with each item ID or vice versa.
 
     Parameters
     ----------
     model: collie.model.BasePipeline
         Model that can take a (user_id, item_id) pair as input and return a recommendation score
     user_or_item_ids: np.array or torch.tensor, 1-d
-        Iterable[int] of users to score
+        Iterable[int] of users or items to score
     n_items_or_users: int
-        Number of items in the training data
+        Number of items or users in the training data
     device: string
         Device to store tensors on
 
     Returns
     -------
     users: torch.tensor, 1-d
-        Tensor with ``n_items`` copies of each user ID
+        Tensor with ``n_items_or_users`` copies of each user ID
     items: torch.tensor, 1-d
-        Tensor with ``len(user_ids)`` copies of each item ID
+        Tensor with ``len(user_or_item_ids)`` copies of each item ID
 
     Example
     -------
@@ -55,22 +55,22 @@ def _get_user_item_pairs(model: BasePipeline,
     """
     try:
         negative_sample_type = model.train_loader.negative_sample_type
-    except AttributeError: # explicit models do not have ``negative_sample_type``
+    except AttributeError:  # explicit models do not have ``negative_sample_type``
         negative_sample_type = 'item'
 
-    # Added because sometimes we call this function with ``n_items`` as ``np.int64`` type which
-    # breaks ``repeat_interleave``.
+    # Added because sometimes we call this function with ``n_items_or_users`` as ``np.int64``
+    # type which breaks ``repeat_interleave``.
     if isinstance(n_items_or_users, np.int64):
         n_items_or_users = n_items_or_users.item()
 
-    tensor1 = torch.tensor(  # TODO rename these
+    aabb_tensor = torch.tensor(
         user_or_item_ids,
         dtype=torch.int64,
         requires_grad=False,
         device=device,
     ).repeat_interleave(n_items_or_users)
 
-    tensor2 = torch.arange(
+    cdcd_tensor = torch.arange(
         start=0,
         end=n_items_or_users,
         requires_grad=False,
@@ -78,12 +78,12 @@ def _get_user_item_pairs(model: BasePipeline,
     ).repeat(len(user_or_item_ids))
 
     if negative_sample_type == 'item':
-        users = tensor1
-        items = tensor2
+        users = aabb_tensor
+        items = cdcd_tensor
 
     elif negative_sample_type == 'user':
-        users = tensor2
-        items = tensor1
+        users = cdcd_tensor
+        items = aabb_tensor
 
     return users, items
 
@@ -94,23 +94,24 @@ def get_preds(model: BasePipeline,
               device: Union[str, torch.device]) -> torch.tensor:
     """
     Returns a ``n_users x n_items`` tensor with the item IDs of recommended products for each user
-    ID.
+    ID or a ``n_items x n_users`` tensor with the user IDs of recommended products for each item
+    ID depending on the ``model.train_loader.negative_sample_type``
 
     Parameters
     ----------
     model: collie.model.BasePipeline
         Model that can take a (user_id, item_id) pair as input and return a recommendation score
     user_or_item_ids: np.array or torch.tensor
-        Iterable[int] of users to score
+        Iterable[int] of users or items to score
     n_items_or_users: int
-        Number of items in the training data
+        Number of items or users in the training data
     device: string
         Device torch should use
 
     Returns
     -------
     predicted_scores: torch.tensor
-        Tensor of shape ``n_users x n_items``
+        Tensor of shape ``n_users x n_items`` or ``n_items x n_users``
 
     """
     user, item = _get_user_item_pairs(model, user_or_item_ids, n_items_or_users, device)
@@ -122,10 +123,10 @@ def get_preds(model: BasePipeline,
 
 
 def _get_labels(targets: csr_matrix,
-                negative_sample_type: Literal['item', 'user'] = 'item',
                 user_or_item_ids: Union[np.array, torch.tensor],
                 preds: Union[np.array, torch.tensor],
-                device: str) -> torch.tensor:
+                device: str,
+                negative_sample_type: Literal['item', 'user'] = 'item') -> torch.tensor:
     """
     Returns a binary array indicating which of the recommended items or users are in each user's or
     item's target set, respectively.
@@ -134,14 +135,14 @@ def _get_labels(targets: csr_matrix,
     ----------
     targets: scipy.sparse.csr_matrix
         Interaction matrix containing user and item IDs
-    negative_sample_type: str
-        Type of negative sampling the Interaction matrix, ``targets``, used
     user_or_item_ids: np.array or torch.tensor
         Users or items corresponding to the recommendations in the top k predictions
     preds: torch.tensor
-        Top ``k`` IDs to recommend to each user of shape (n_users_or_items x k)
+        Top ``k`` IDs to recommend to each user or item of shape (n_users_or_items x k)
     device: string
         Device torch should use
+    negative_sample_type: str
+        Type of negative sampling the Interaction matrix, ``targets``, used
 
     Returns
     -------
@@ -166,24 +167,28 @@ def _get_labels(targets: csr_matrix,
             device=device,
         )
 
-# start here
+
 def mapk(targets: csr_matrix,
-         user_ids: Union[np.array, torch.tensor],
+         user_or_item_ids: Union[np.array, torch.tensor],
          preds: Union[np.array, torch.tensor],
-         k: int = 10) -> float:
+         k: int = 10,
+         negative_sample_type: Literal['item', 'user'] = 'item') -> float:
     """
-    Calculate the mean average precision at K (MAP@K) score for each user.
+    Calculate the mean average precision at K (MAP@K) score for each user or item.
 
     Parameters
     ----------
     targets: scipy.sparse.csr_matrix
         Interaction matrix containing user and item IDs
-    user_ids: np.array or torch.tensor
-        Users corresponding to the recommendations in the top k predictions
+    user_or_item_ids: np.array or torch.tensor
+        Users or items corresponding to the recommendations in the top k predictions
     preds: torch.tensor
-        Tensor of shape (n_users x n_items) with each user's scores for each item
+        Tensor of shape (n_users x n_items) with each user's scores for each item or
+        tensor of shape (n_items x n_users) with each item's scores for each user
     k: int
-        Number of recommendations to consider per user
+        Number of recommendations to consider per user or item
+    negative_sample_type: str
+        Type of negative sampling the Interaction matrix, ``targets``, used
 
     Returns
     -------
@@ -191,16 +196,16 @@ def mapk(targets: csr_matrix,
 
     """
     device = preds.device
-    n_users = preds.shape[0]
+    n_users_or_items = preds.shape[0]
 
     try:
-        predicted_items = preds.topk(k, dim=1).indices
+        predictions = preds.topk(k, dim=1).indices
     except RuntimeError as e:
         raise ValueError(
             f'Ensure ``k`` ({k}) is less than the number of items ({preds.shape[1]}):', str(e)
         )
 
-    topk_labeled = _get_labels(targets, user_ids, predicted_items, device)
+    topk_labeled = _get_labels(targets, user_or_item_ids, predictions, device, negative_sample_type)
     accuracy = topk_labeled.int()
 
     weights = (
@@ -211,12 +216,18 @@ def mapk(targets: csr_matrix,
             requires_grad=False,
             device=device
         )
-    ).repeat(n_users, 1)
+    ).repeat(n_users_or_items, 1)
 
-    denominator = torch.min(
-        torch.tensor(k, device=device, dtype=torch.int).repeat(len(user_ids)),
-        torch.tensor(targets[user_ids].getnnz(axis=1), device=device)
-    )
+    if negative_sample_type == 'item':
+        denominator = torch.min(
+            torch.tensor(k, device=device, dtype=torch.int).repeat(len(user_or_item_ids)),
+            torch.tensor(targets[user_or_item_ids].getnnz(axis=1), device=device)
+        )
+    elif negative_sample_type == 'user':
+        denominator = torch.min(
+            torch.tensor(k, device=device, dtype=torch.int).repeat(len(user_or_item_ids)),
+            torch.tensor(targets[:, user_or_item_ids].getnnz(axis=1), device=device)
+        )
 
     res = ((accuracy * accuracy.cumsum(axis=1) * weights).sum(axis=1)) / denominator
     res[torch.isnan(res)] = 0
@@ -225,9 +236,10 @@ def mapk(targets: csr_matrix,
 
 
 def mrr(targets: csr_matrix,
-        user_ids: Union[np.array, torch.tensor],
+        user_or_item_ids: Union[np.array, torch.tensor],
         preds: Union[np.array, torch.tensor],
-        k: Optional[Any] = None) -> float:
+        k: Optional[Any] = None,
+        negative_sample_type: Literal['item', 'user'] = 'item') -> float:
     """
     Calculate the mean reciprocal rank (MRR) of the input predictions.
 
@@ -235,27 +247,39 @@ def mrr(targets: csr_matrix,
     ----------
     targets: scipy.sparse.csr_matrix
         Interaction matrix containing user and item IDs
-    user_ids: np.array or torch.tensor
-        Users corresponding to the recommendations in the top k predictions
+    user_or_item_ids: np.array or torch.tensor
+        Users or items corresponding to the recommendations in the top k predictions
     preds: torch.tensor
-        Tensor of shape (n_users x n_items) with each user's scores for each item
+        Tensor of shape (n_users x n_items) with each user's scores for each item or
+        tensor of shape (n_items x n_users) with each item's scores for each user
     k: Any
         Ignored, included only for compatibility with ``mapk``
+    negative_sample_type: str
+        Type of negative sampling the Interaction matrix, ``targets``, used
 
     Returns
     -------
     mrr_score: float
 
     """
-    predicted_items = preds.topk(preds.shape[1], dim=1).indices
-    labeled = _get_labels(targets, user_ids, predicted_items, device=preds.device)
+    device = preds.device
+    predictions = preds.topk(preds.shape[1], dim=1).indices
+    labeled = _get_labels(targets, user_or_item_ids, predictions, device, negative_sample_type)
 
-    # weighting each 0/1 by position so that topk returns index of *first* postive result
-    position_weight = 1.0/(
-        torch.arange(1, targets.shape[1] + 1, device=preds.device)
-        .repeat(len(user_ids), 1)
-        .float()
-    )
+    if negative_sample_type == 'item':
+        # weighting each 0/1 by position so that topk returns index of *first* postive result
+        position_weight = 1.0/(
+            torch.arange(1, targets.shape[1] + 1, device=device)
+            .repeat(len(user_or_item_ids), 1)
+            .float()
+        )
+    elif negative_sample_type == 'user':
+        # weighting each 0/1 by position so that topk returns index of *first* postive result
+        position_weight = 1.0/(
+            torch.arange(1, targets.shape[0] + 1, device=device)
+            .repeat(len(user_or_item_ids), 1)
+            .float()
+        )
     labeled_weighted = (labeled.float() * position_weight)
 
     highest_score, rank = labeled_weighted.topk(k=1)
@@ -267,22 +291,26 @@ def mrr(targets: csr_matrix,
 
 
 def auc(targets: csr_matrix,
-        user_ids: Union[np.array, torch.tensor],
+        user_or_item_ids: Union[np.array, torch.tensor],
         preds: Union[np.array, torch.tensor],
-        k: Optional[Any] = None) -> float:
+        k: Optional[Any] = None,
+        negative_sample_type: Literal['item', 'user'] = 'item') -> float:
     """
-    Calculate the area under the ROC curve (AUC) for each user and average the results.
+    Calculate the area under the ROC curve (AUC) for each user or item and average the results.
 
     Parameters
     ----------
     targets: scipy.sparse.csr_matrix
         Interaction matrix containing user and item IDs
-    user_ids: np.array or torch.tensor
-        Users corresponding to the recommendations in the top k predictions
+    user_or_item_ids: np.array or torch.tensor
+        Users or items corresponding to the recommendations in the top k predictions
     preds: torch.tensor
-        Tensor of shape (n_users x n_items) with each user's scores for each item
+        Tensor of shape (n_users x n_items) with each user's scores for each item or
+        tensor of shape (n_items x n_users) with each item's scores for each user
     k: Any
         Ignored, included only for compatibility with ``mapk``
+    negative_sample_type: str
+        Type of negative sampling the Interaction matrix, ``targets``, used
 
     Returns
     -------
@@ -290,19 +318,32 @@ def auc(targets: csr_matrix,
 
     """
     agg = 0
-    for i, user_id in enumerate(user_ids):
-        target_tensor = torch.tensor(
-            targets[user_id].toarray(),
-            device=preds.device,
-            dtype=torch.long
-        ).view(-1)
-        # many models' ``preds`` may be unbounded if a final activation layer is not applied
-        # we have to normalize ``preds`` here to avoid a ``ValueError`` stating that ``preds``
-        # should be probabilities, but values were detected outside of [0,1] range
-        auc = auroc(torch.sigmoid(preds[i, :]), target=target_tensor, pos_label=1)
-        agg += auc
+    if negative_sample_type == 'item':
+        for i, user_id in enumerate(user_or_item_ids):
+            target_tensor = torch.tensor(
+                targets[user_id].toarray(),
+                device=preds.device,
+                dtype=torch.long
+            ).view(-1)
+            # many models' ``preds`` may be unbounded if a final activation layer is not applied
+            # we have to normalize ``preds`` here to avoid a ``ValueError`` stating that ``preds``
+            # should be probabilities, but values were detected outside of [0,1] range
+            auc = auroc(torch.sigmoid(preds[i, :]), target=target_tensor, pos_label=1)
+            agg += auc
+    elif negative_sample_type == 'user':
+        for i, item_id in enumerate(user_or_item_ids):
+            target_tensor = torch.tensor(
+                targets[:, item_id].toarray(),
+                device=preds.device,
+                dtype=torch.long
+            ).view(-1)
+            # many models' ``preds`` may be unbounded if a final activation layer is not applied
+            # we have to normalize ``preds`` here to avoid a ``ValueError`` stating that ``preds``
+            # should be probabilities, but values were detected outside of [0,1] range
+            auc = auroc(torch.sigmoid(preds[i, :]), target=target_tensor, pos_label=1)
+            agg += auc
 
-    return (agg/len(user_ids)).item()
+    return (agg/len(user_or_item_ids)).item()
 
 
 def evaluate_in_batches(
@@ -342,10 +383,10 @@ def evaluate_in_batches(
     model: collie.model.BasePipeline
         Model that can take a (user_id, item_id) pair as input and return a recommendation score
     k: int
-        Number of recommendations to consider per user. This is ignored by some metrics
+        Number of recommendations to consider per user or item. This is ignored by some metrics
     batch_size: int
-        Number of users to score in a single batch. For best efficiency, this number should be as
-        high as possible without running out of memory
+        Number of users or items to score in a single batch. For best efficiency, this number
+        should be as high as possible without running out of memory
     logger: pytorch_lightning.loggers.base.LightningLoggerBase
         If provided, will log outputted metrics dictionary using the ``log_metrics`` method with
         keys being the string representation of ``metric_list`` and values being
@@ -387,26 +428,38 @@ def evaluate_in_batches(
     model.to(device)
     model._move_any_external_data_to_device()
 
-    test_users = np.unique(test_interactions.mat.row)
+    negative_sample_type = test_interactions.negative_sample_type
+
+    if negative_sample_type == 'item':
+        test_users_or_items = np.unique(test_interactions.mat.row)
+        n_items_or_users = test_interactions.num_items
+    elif negative_sample_type == 'user':
+        test_users_or_items = np.unique(test_interactions.mat.col)
+        n_items_or_users = test_interactions.num_users
+
     targets = test_interactions.mat.tocsr()
 
-    if len(test_users) < batch_size:
-        batch_size = len(test_users)
+    if len(test_users_or_items) < batch_size:
+        batch_size = len(test_users_or_items)
 
     accumulators = [0] * len(metric_list)
 
-    data_to_iterate_over = range(int(np.ceil(len(test_users) / batch_size)))
+    data_to_iterate_over = range(int(np.ceil(len(test_users_or_items) / batch_size)))
     if verbose:
         data_to_iterate_over = tqdm(data_to_iterate_over)
 
     for i in data_to_iterate_over:
-        user_range = test_users[i * batch_size:(i + 1) * batch_size]
-        preds = get_preds(model, user_range, test_interactions.num_items, device)
+        user_or_item_range = test_users_or_items[i * batch_size:(i + 1) * batch_size]
+        preds = get_preds(model, user_or_item_range, n_items_or_users, device, negative_sample_type)
         for metric_ind, metric in enumerate(metric_list):
-            score = metric(targets=targets, user_ids=user_range, preds=preds, k=k)
-            accumulators[metric_ind] += (score * len(user_range))
+            score = metric(targets=targets,
+                           user_or_item_ids=user_or_item_range,
+                           preds=preds,
+                           k=k,
+                           negative_sample_type=negative_sample_type)
+            accumulators[metric_ind] += (score * len(user_or_item_range))
 
-    all_scores = [acc_score / len(test_users) for acc_score in accumulators]
+    all_scores = [acc_score / len(test_users_or_items) for acc_score in accumulators]
 
     if logger is not None:
         _log_metrics(model=model,
