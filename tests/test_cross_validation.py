@@ -258,10 +258,30 @@ def test_stratified_split_with_users_with_only_one_interaction_raises_error(
         match='Unable to stratify split on users - the ``interactions`` object contains users '
               'with a single interaction. Either set ``force_split = True`` to put all users '
               'with a single interaction in the training set or run '
-              '``collie.utils.remove_users_with_fewer_than_n_interactions`` first.'
+              '``collie.utils.remove_users_or_items_with_fewer_than_n_interactions`` first.'
     ):
         stratified_split(
             interactions=interactions_to_split_with_users_with_only_one_interaction,
+            test_p=0.2,
+            seed=42,
+            processes=processes,
+        )
+
+
+@pytest.mark.parametrize('processes', [0, -1])
+def test_stratified_split_with_items_with_only_one_interaction_raises_error(
+    interactions_to_split_with_items_with_only_one_interaction,
+    processes
+):
+    with pytest.raises(
+        ValueError,
+        match='Unable to stratify split on items - the ``interactions`` object contains items '
+              'with a single interaction. Either set ``force_split = True`` to put all items '
+              'with a single interaction in the training set or run '
+              '``collie.utils.remove_users_or_items_with_fewer_than_n_interactions`` first.'
+    ):
+        stratified_split(
+            interactions=interactions_to_split_with_items_with_only_one_interaction,
             test_p=0.2,
             seed=42,
             processes=processes,

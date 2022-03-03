@@ -450,7 +450,7 @@ def evaluate_in_batches(
 
     for i in data_to_iterate_over:
         user_or_item_range = test_users_or_items[i * batch_size:(i + 1) * batch_size]
-        preds = get_preds(model, user_or_item_range, n_items_or_users, device, negative_sample_type)
+        preds = get_preds(model, user_or_item_range, n_items_or_users, device)
         for metric_ind, metric in enumerate(metric_list):
             score = metric(targets=targets,
                            user_or_item_ids=user_or_item_range,

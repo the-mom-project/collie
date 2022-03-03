@@ -239,10 +239,13 @@ def _stratified_split(interactions: BaseInteractions,
                       processes: int,
                       seed: int,
                       force_split: bool) -> Tuple[Interactions, Interactions]:
-    if interactions.negative_sample_type == 'item':
+    try:
+        if interactions.negative_sample_type == 'item':
+            users_or_items = interactions.mat.row
+        elif interactions.negative_sample_type == 'user':
+            users_or_items = interactions.mat.col
+    except AttributeError:
         users_or_items = interactions.mat.row
-    elif interactions.negative_sample_type == 'user':
-        users_or_items = interactions.mat.col
     unique_users_or_items = set(users_or_items)
     # while we should be able to run ``np.where(users == user)[0]`` to find all items each user
     # interacted with, by building up a dictionary to get these values instead, we can achieve the
@@ -298,6 +301,14 @@ def _stratified_split_parallel_worker(interactions: BaseInteractions,
                                       seed: int,
                                       force_split: bool) -> np.array:
     try:
+        if interactions.negative_sample_type == 'item':
+            opposite_type = 'user'
+        elif interactions.negative_sample_type == 'user':
+            opposite_type = 'item'
+    except AttributeError:
+        opposite_type = 'user'
+
+    try:
         _, test_idxs = train_test_split(idxs_to_split,
                                         test_size=test_p,
                                         random_state=seed,
@@ -307,11 +318,10 @@ def _stratified_split_parallel_worker(interactions: BaseInteractions,
         if 'the resulting train set will be empty' in str(ve):
             if force_split is False:
                 raise ValueError(
-                    f'Unable to stratify split on {interactions.negative_sample_type}s - the '
-                    f'``interactions`` object contains {interactions.negative_sample_type}s'
-                    ' with a single interaction. Either set ``force_split = True`` to put all '
-                    f'{interactions.negative_sample_type}s with a single interaction in the'
-                    'training set or run '
+                    f'Unable to stratify split on {opposite_type}s - the ``interactions`` object'
+                    f' contains {opposite_type}s with a single interaction. Either set '
+                    f'``force_split = True`` to put all {opposite_type}s with a single interaction'
+                    ' in the training set or run '
                     '``collie.utils.remove_users_or_items_with_fewer_than_n_interactions``'
                     ' first.'
                 )

@@ -10,7 +10,7 @@ from collie.utils import (convert_to_implicit,
                           df_to_html,
                           df_to_interactions,
                           get_init_arguments,
-                          remove_users_with_fewer_than_n_interactions,
+                          remove_users_or_items_with_fewer_than_n_interactions,
                           Timer)
 
 
@@ -114,9 +114,26 @@ def test_remove_users_with_fewer_than_n_interactions(df_with_users_interacting_o
         'itemId': [1, 2, 3, 4, 5, 6, 7, 8, 9, 2],
     })
 
-    actual = remove_users_with_fewer_than_n_interactions(df=df_with_users_interacting_only_once,
-                                                         min_num_of_interactions=2,
-                                                         user_col='userId')
+    actual = remove_users_or_items_with_fewer_than_n_interactions(
+        df=df_with_users_interacting_only_once,
+        min_num_of_interactions=2,
+        user_or_item_col='userId'
+    )
+
+    pd.testing.assert_frame_equal(actual, expected)
+
+
+def test_remove_items_with_fewer_than_n_interactions(df_with_items_interacting_only_once):
+    expected = pd.DataFrame(data={
+        'userId': [1, 2, 3, 4, 5, 6, 7, 8, 9, 2],
+        'itemId': [0, 1, 1, 2, 2, 2, 3, 3, 3, 0],
+    })
+
+    actual = remove_users_or_items_with_fewer_than_n_interactions(
+        df=df_with_items_interacting_only_once,
+        min_num_of_interactions=2,
+        user_or_item_col='itemId'
+    )
 
     pd.testing.assert_frame_equal(actual, expected)
 
