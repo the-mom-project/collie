@@ -96,7 +96,7 @@ def train_val_implicit_data_user_negative_sample_type(
         val_p=0.,
         test_p=0.2,
         seed=42,
-        force_split = True,
+        force_split=True,
     )
 
 
