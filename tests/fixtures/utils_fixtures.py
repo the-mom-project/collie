@@ -41,6 +41,14 @@ def df_with_users_interacting_only_once():
 
 
 @pytest.fixture()
+def df_with_items_interacting_only_once():
+    return pd.DataFrame(data={
+        'userId': [1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3],
+        'itemId': [0, 1, 1, 2, 2, 2, 3, 3, 3, 4, 0, 5],
+    })
+
+
+@pytest.fixture()
 def item_embeddings():
     return torch.Tensor([[1, 2, 3],
                          [4, 5, 6],

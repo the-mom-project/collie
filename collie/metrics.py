@@ -226,7 +226,7 @@ def mapk(targets: csr_matrix,
     elif negative_sample_type == 'user':
         denominator = torch.min(
             torch.tensor(k, device=device, dtype=torch.int).repeat(len(user_or_item_ids)),
-            torch.tensor(targets[:, user_or_item_ids].getnnz(axis=1), device=device)
+            torch.tensor(targets[:, user_or_item_ids].getnnz(axis=0), device=device)
         )
 
     res = ((accuracy * accuracy.cumsum(axis=1) * weights).sum(axis=1)) / denominator
