@@ -23,6 +23,7 @@ from collie.metrics import (_get_evaluate_in_batches_device,
 def get_model_scores(user, item, scores):
     return scores[user.long(), item.long()]
 
+
 @mock.patch('collie.model.MatrixFactorizationModel')
 @pytest.mark.parametrize('n_items_type', ['int', 'np.int64'])
 def test_get_user_item_pairs_example(model, device, n_items_type):
@@ -31,16 +32,16 @@ def test_get_user_item_pairs_example(model, device, n_items_type):
     n_items = 4
     if n_items_type == 'np.int64':
         n_items = np.int64(n_items)
-    
+
     model.train_loader.negative_sample_type = 'item'
 
     expected_users = torch.tensor([10, 10, 10, 10, 11, 11, 11, 11, 12, 12, 12, 12], device=device)
     expected_items = torch.tensor([0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3], device=device)
 
     actual_users, actual_items = _get_user_item_pairs(model=model,
-                                              user_or_item_ids=user_ids,
-                                              n_items_or_users=n_items,
-                                              device=device)
+                                                      user_or_item_ids=user_ids,
+                                                      n_items_or_users=n_items,
+                                                      device=device)
 
     assert torch.equal(actual_users, expected_users)
     assert torch.equal(actual_items, expected_items)
@@ -54,16 +55,16 @@ def test_get_user_item_pairs_negative_sample_user(model, device, n_users_type):
     n_users = 4
     if n_users_type == 'np.int64':
         n_users = np.int64(n_users)
-    
+
     model.train_loader.negative_sample_type = 'user'
 
     expected_users = torch.tensor([0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3], device=device)
     expected_items = torch.tensor([10, 10, 10, 10, 11, 11, 11, 11, 12, 12, 12, 12], device=device)
-    
+
     actual_users, actual_items = _get_user_item_pairs(model=model,
-                                              user_or_item_ids=item_ids,
-                                              n_items_or_users=n_users,
-                                              device=device)
+                                                      user_or_item_ids=item_ids,
+                                                      n_items_or_users=n_users,
+                                                      device=device)
 
     assert torch.equal(actual_users, expected_users)
     assert torch.equal(actual_items, expected_items)
@@ -107,7 +108,11 @@ def test_get_preds_implicit(model, test_implicit_predicted_scores, device):
 
 
 @mock.patch('collie.model.MatrixFactorizationModel')
-def test_get_preds_implicit_negative_sample_user(model, test_implicit_predicted_scores_negative_sample_user, device):
+def test_get_preds_implicit_negative_sample_user(
+    model,
+    test_implicit_predicted_scores_negative_sample_user,
+    device
+):
     n_items, n_users = test_implicit_predicted_scores_negative_sample_user.shape
     item_ids = np.arange(n_items)
     model.train_loader.negative_sample_type = 'user'
@@ -131,7 +136,12 @@ def test_get_labels(targets, test_implicit_recs, test_implicit_labels, device):
     assert torch.equal(actual_labels, expected_labels)
 
 
-def test_get_labels_negative_sample_user(targets, test_implicit_recs_negative_sample_user, test_implicit_labels_negative_sample_user, device):
+def test_get_labels_negative_sample_user(
+    targets,
+    test_implicit_recs_negative_sample_user,
+    test_implicit_labels_negative_sample_user,
+    device
+):
     item_ids = np.array([1, 2])
     actual_labels = _get_labels(targets=targets,
                                 user_or_item_ids=item_ids,
@@ -155,7 +165,12 @@ def test_get_labels_k(targets, test_implicit_recs, test_implicit_labels, device)
     assert torch.equal(actual_labels, expected_labels)
 
 
-def test_get_labels_k_negative_sample_user(targets, test_implicit_recs_negative_sample_user, test_implicit_labels_negative_sample_user, device):
+def test_get_labels_k_negative_sample_user(
+    targets,
+    test_implicit_recs_negative_sample_user,
+    test_implicit_labels_negative_sample_user,
+    device
+):
     item_ids = np.arange(test_implicit_recs_negative_sample_user.shape[0])
     k = 2
     actual_labels = _get_labels(targets=targets,
@@ -245,7 +260,10 @@ def test_auc(targets, test_implicit_predicted_scores):
     np.testing.assert_almost_equal(actual_score, expected_score)
 
 
-def test_auc_negative_sample_user(targets_auc_negative_sample_user, test_implicit_predicted_scores_negative_sample_user):
+def test_auc_negative_sample_user(
+    targets_auc_negative_sample_user,
+    test_implicit_predicted_scores_negative_sample_user
+):
     item_ids = np.arange(test_implicit_predicted_scores_negative_sample_user.shape[0])
     actual_score = auc(targets=targets_auc_negative_sample_user,
                        user_or_item_ids=item_ids,
