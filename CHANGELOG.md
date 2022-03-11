@@ -3,11 +3,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project uses [Semantic Versioning](http://semver.org/).
 
-# [1.3.0] - 2022-3-04
+# [1.3.0] - 2022-3-10
 ### Added
  - ``negative_sample_type`` to ``Interactions`` and ``DataLoader`` classes to have the abilty to negative sample users or items
- - ``BasePipeline`` inheirits  ``negative_sample_type`` from the ``train_loader``
- - ``negative_sample_type`` arguements in ``mapk``, ``mrr``, and ``auc`` and the calculations are computed accordingly
+ - ``BasePipeline`` inherits  ``negative_sample_type`` from the ``train_loader``
+ - ``evaluate_in_batches`` inherits  ``negative_sample_type`` from the ``test_interactions``
 ### Changed
  - ``stratified_split`` stratifies the split based on the  ``negative_sample_type`` of the ``Interactions`` object
  - ``remove_users_with_fewer_than_n_interactions`` is renamed to ``remove_users_or_items_with_fewer_than_n_interactions``

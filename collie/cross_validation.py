@@ -7,6 +7,7 @@ from joblib import delayed, Parallel
 import numpy as np
 from scipy.sparse import coo_matrix
 from sklearn.model_selection import train_test_split
+from typing_extensions import Literal
 
 from collie.interactions import (BaseInteractions,
                                  ExplicitInteractions,
@@ -239,13 +240,13 @@ def _stratified_split(interactions: BaseInteractions,
                       processes: int,
                       seed: int,
                       force_split: bool) -> Tuple[Interactions, Interactions]:
-    try:
-        if interactions.negative_sample_type == 'item':
-            users_or_items = interactions.mat.row
-        elif interactions.negative_sample_type == 'user':
-            users_or_items = interactions.mat.col
-    except AttributeError:
-        users_or_items = interactions.mat.row
+    users_or_items = interactions.mat.row
+    opposite_type = 'user'
+
+    if getattr(interactions, 'negative_sample_type', 'item') == 'user':
+        users_or_items = interactions.mat.col
+        opposite_type = 'item'
+
     unique_users_or_items = set(users_or_items)
     # while we should be able to run ``np.where(users == user)[0]`` to find all items each user
     # interacted with, by building up a dictionary to get these values instead, we can achieve the
@@ -262,7 +263,8 @@ def _stratified_split(interactions: BaseInteractions,
                 idxs_to_split=all_idxs_for_users_or_items_dict[user_or_item],
                 test_p=test_p,
                 seed=(seed + user_or_item),
-                force_split=force_split
+                force_split=force_split,
+                opposite_type=opposite_type,
             )
             for user_or_item in unique_users_or_items
         ]
@@ -277,7 +279,8 @@ def _stratified_split(interactions: BaseInteractions,
                 all_idxs_for_users_or_items_dict[user_or_item],
                 test_p,
                 seed + user_or_item,
-                force_split
+                force_split,
+                opposite_type,
             )
             for user_or_item in unique_users_or_items
         )
@@ -299,7 +302,8 @@ def _stratified_split_parallel_worker(interactions: BaseInteractions,
                                       idxs_to_split: Iterable[Any],
                                       test_p: float,
                                       seed: int,
-                                      force_split: bool) -> np.array:
+                                      force_split: bool,
+                                      opposite_type: Literal['item', 'user'] = 'user') -> np.array:
     try:
         if interactions.negative_sample_type == 'item':
             opposite_type = 'user'
