@@ -80,8 +80,8 @@ def _get_preds(model: BasePipeline,
                device: Union[str, torch.device],
                negative_sample_type: Literal['item', 'user'] = 'item') -> torch.tensor:
     """
-    Returns a ``len(np.unique(row_ids)) x n_cols`` tensor with the column IDs of recommendations for each row
-    ID.
+    Returns a ``len(np.unique(row_ids)) x n_cols`` tensor with the column IDs of recommendations for
+    each row ID.
 
     Parameters
     ----------

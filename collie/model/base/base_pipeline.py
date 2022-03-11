@@ -588,7 +588,9 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
               - Expected Meaning
               - Model Type
             * - ``((X, Y), Z)``
-              - ``((user IDs, item IDs), negative item or user IDs)``
+              - ``((user IDs, item IDs), negative item or user IDs depending on
+              ``train_loader.negative_sample_type`` (user when ``negative_sample_type == 'user'``,
+              item when ``negative_sample_type == 'item'``))``
               - **Implicit**
             * - ``(X, Y, Z)``
               - ``(user IDs, item IDs, ratings)``
