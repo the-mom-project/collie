@@ -59,6 +59,7 @@ def test_CollieTrainer_no_gpu(is_available_mock, untrained_implicit_model, capfd
 
 @mock.patch('torch.cuda.is_available')
 def test_CollieTrainer_on_cpu(is_available_mock, untrained_implicit_model):
+    import pdb; pdb.set_trace()
     is_available_mock.return_value = True
 
     with pytest.warns(UserWarning):

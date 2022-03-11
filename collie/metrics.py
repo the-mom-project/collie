@@ -24,9 +24,9 @@ def _get_row_col_pairs(row_ids: Union[np.array, torch.tensor],
     Parameters
     ----------
     row_ids: np.array or torch.tensor, 1-d
-        Iterable[int] of users or items to score
+        Iterable[int] of rows to score
     n_cols: int
-        Number of items or users in the training data
+        Number of columns in the training data
     device: string
         Device to store tensors on
 
@@ -41,12 +41,13 @@ def _get_row_col_pairs(row_ids: Union[np.array, torch.tensor],
     -------
     .. code-block:: python
 
-        >>> row_ids = np.array([10, 11, 12])
-        >>> n_cols = 4
-        >>> row, col = _get_row_col_pairs(row_ids: row_ids, n_cols: 4, device: 'cpu'):
-        >>> row
+        >>> # let's assume an interactions matrix with users as rows and items as columns
+        >>> row_ids = np.array([10, 11, 12])  # user IDs
+        >>> n_cols = 4  # number of items
+        >>> users, items = _get_row_col_pairs(row_ids: row_ids, n_cols: 4, device: 'cpu'):
+        >>> users
         np.array([10, 10, 10, 10, 11, 11, 11, 11, 12, 12, 12, 12])
-        >>> col
+        >>> items
         np.array([0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3])
 
     """
@@ -79,18 +80,17 @@ def _get_preds(model: BasePipeline,
                device: Union[str, torch.device],
                negative_sample_type: Literal['item', 'user'] = 'item') -> torch.tensor:
     """
-    Returns a ``n_users x n_items`` tensor with the item IDs of recommended products for each user
-    ID or a ``n_items x n_users`` tensor with the user IDs of recommended products for each item
-    ID depending on the ``model.train_loader.negative_sample_type``
+    Returns a ``len(np.unique(row_ids)) x n_cols`` tensor with the column IDs of recommendations for each row
+    ID.
 
     Parameters
     ----------
     model: collie.model.BasePipeline
         Model that can take a (user_id, item_id) pair as input and return a recommendation score
     row_ids: np.array or torch.tensor
-        Iterable[int] of users or items to score
+        Iterable[int] of rows to score
     n_cols: int
-        Number of items or users in the training data
+        Number of columns in the training data
     device: string
         Device torch should use
     negative_sample_type: str
@@ -99,7 +99,7 @@ def _get_preds(model: BasePipeline,
     Returns
     -------
     predicted_scores: torch.tensor
-        Tensor of shape ``n_users x n_items`` or ``n_items x n_users``
+        Tensor of shape ``len(np.unique(row_ids)) x n_cols``
 
     """
     if negative_sample_type == 'item':
@@ -118,17 +118,16 @@ def _get_labels(targets: csr_matrix,
                 preds: Union[np.array, torch.tensor],
                 device: str) -> torch.tensor:
     """
-    Returns a binary array indicating which of the recommended items or users are in each user's or
-    item's target set, respectively.
+    Returns a binary array indicating which of the recommended columns are in each row's target set.
 
     Parameters
     ----------
     targets: scipy.sparse.csr_matrix
-        Interaction matrix containing user and item IDs
+        Interaction matrix containing row and column IDs
     row_ids: np.array or torch.tensor
-        Users or items corresponding to the recommendations in the top k predictions
+        Rows corresponding to the recommendations in the top k predictions
     preds: torch.tensor
-        Top ``k`` IDs to recommend to each user or item of shape (n_users_or_items x k)
+        Top ``k`` IDs to recommend to each row of shape (n_rows x k)
     device: string
         Device torch should use
 
@@ -152,19 +151,18 @@ def mapk(targets: csr_matrix,
          preds: Union[np.array, torch.tensor],
          k: int = 10) -> float:
     """
-    Calculate the mean average precision at K (MAP@K) score for each user or item.
+    Calculate the mean average precision at K (MAP@K) score for each row.
 
     Parameters
     ----------
     targets: scipy.sparse.csr_matrix
-        Interaction matrix containing user and item IDs
+        Interaction matrix containing row and column IDs
     row_ids: np.array or torch.tensor
-        Users or items corresponding to the recommendations in the top k predictions
+        Rows corresponding to the recommendations in the top k predictions
     preds: torch.tensor
-        Tensor of shape (n_users x n_items) with each user's scores for each item or
-        tensor of shape (n_items x n_users) with each item's scores for each user
+        Tensor of shape (n_rows x n_cols) with each row's scores for each column
     k: int
-        Number of recommendations to consider per user or item
+        Number of recommendations to consider per row
     negative_sample_type: str
         Type of negative sampling the Interaction matrix, ``targets``, used
 
@@ -217,12 +215,11 @@ def mrr(targets: csr_matrix,
     Parameters
     ----------
     targets: scipy.sparse.csr_matrix
-        Interaction matrix containing user and item IDs
+        Interaction matrix containing row and column IDs
     row_ids: np.array or torch.tensor
-        Users or items corresponding to the recommendations in the top k predictions
+        Rows corresponding to the recommendations in the top k predictions
     preds: torch.tensor
-        Tensor of shape (n_users x n_items) with each user's scores for each item or
-        tensor of shape (n_items x n_users) with each item's scores for each user
+        Tensor of shape (n_rows x n_cols) with each row's scores for each column
     k: Any
         Ignored, included only for compatibility with ``mapk``
     negative_sample_type: str
@@ -259,17 +256,16 @@ def auc(targets: csr_matrix,
         preds: Union[np.array, torch.tensor],
         k: Optional[Any] = None) -> float:
     """
-    Calculate the area under the ROC curve (AUC) for each user or item and average the results.
+    Calculate the area under the ROC curve (AUC) for each row and average the results.
 
     Parameters
     ----------
     targets: scipy.sparse.csr_matrix
-        Interaction matrix containing user and item IDs
+        Interaction matrix containing row and column IDs
     row_ids: np.array or torch.tensor
-        Users or items corresponding to the recommendations in the top k predictions
+        Rows corresponding to the recommendations in the top k predictions
     preds: torch.tensor
-        Tensor of shape (n_users x n_items) with each user's scores for each item or
-        tensor of shape (n_items x n_users) with each item's scores for each user
+        Tensor of shape (n_rows x n_cols) with each row's scores for each column
     k: Any
         Ignored, included only for compatibility with ``mapk``
 
@@ -331,9 +327,9 @@ def evaluate_in_batches(
     model: collie.model.BasePipeline
         Model that can take a (user_id, item_id) pair as input and return a recommendation score
     k: int
-        Number of recommendations to consider per user or item. This is ignored by some metrics
+        Number of recommendations to consider per row. This is ignored by some metrics
     batch_size: int
-        Number of users or items to score in a single batch. For best efficiency, this number
+        Number of rows to score in a single batch. For best efficiency, this number
         should be as high as possible without running out of memory
     logger: pytorch_lightning.loggers.base.LightningLoggerBase
         If provided, will log outputted metrics dictionary using the ``log_metrics`` method with

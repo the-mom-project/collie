@@ -146,8 +146,9 @@ def stratified_split(interactions: BaseInteractions,
                      force_split: bool = False) -> Tuple[BaseInteractions, ...]:
     """
     Split an ``Interactions`` instance into train, validate, and test datasets in a stratified
-    manner such that each user or item appears at least once in each of the datasets. Whether
-    the split is on user of item is determined by the input ``Interactions`` instance.
+    manner such that each user or item, depending on ``interactions.negative_sample_type`` (user
+    when ``negative_sample_type == 'item'``, item when ``negative_sample_type == 'user'``) appears
+    at least once in each of the datasets.
 
     This split guarantees that every user or item will be represented in the training, validation,
     and testing datasets given they appear in ``interactions`` at least three times. If ``val_p ==
@@ -240,33 +241,33 @@ def _stratified_split(interactions: BaseInteractions,
                       processes: int,
                       seed: int,
                       force_split: bool) -> Tuple[Interactions, Interactions]:
-    users_or_items = interactions.mat.row
+    rows = interactions.mat.row
     opposite_type = 'user'
 
     if getattr(interactions, 'negative_sample_type', 'item') == 'user':
-        users_or_items = interactions.mat.col
+        rows = interactions.mat.col
         opposite_type = 'item'
 
-    unique_users_or_items = set(users_or_items)
+    unique_rows = set(rows)
     # while we should be able to run ``np.where(users == user)[0]`` to find all items each user
     # interacted with, by building up a dictionary to get these values instead, we can achieve the
     # same result in O(N) complexity rather than O(M * N), a nice timesave to have when working with
     # larger datasets
-    all_idxs_for_users_or_items_dict = defaultdict(list)
-    for idx, user_or_item in enumerate(users_or_items):
-        all_idxs_for_users_or_items_dict[user_or_item].append(idx)
+    all_idxs_for_rows_dict = defaultdict(list)
+    for idx, row in enumerate(rows):
+        all_idxs_for_rows_dict[row].append(idx)
 
     if processes == 0:
         test_idxs = [
             _stratified_split_parallel_worker(
                 interactions=interactions,
-                idxs_to_split=all_idxs_for_users_or_items_dict[user_or_item],
+                idxs_to_split=all_idxs_for_rows_dict[row],
                 test_p=test_p,
-                seed=(seed + user_or_item),
+                seed=(seed + row),
                 force_split=force_split,
                 opposite_type=opposite_type,
             )
-            for user_or_item in unique_users_or_items
+            for row in unique_rows
         ]
     else:
         # run the function below in parallel for each user
@@ -276,19 +277,19 @@ def _stratified_split(interactions: BaseInteractions,
         test_idxs = Parallel(n_jobs=processes)(
             delayed(_stratified_split_parallel_worker)(
                 interactions,
-                all_idxs_for_users_or_items_dict[user_or_item],
+                all_idxs_for_rows_dict[row],
                 test_p,
-                seed + user_or_item,
+                seed + row,
                 force_split,
                 opposite_type,
             )
-            for user_or_item in unique_users_or_items
+            for row in unique_rows
         )
 
     # reduce the list of lists down to a 1-d list
     test_idxs = functools.reduce(operator.iconcat, test_idxs, [])
     # find all indices not in test set - they are now train
-    train_idxs = list(set(range(len(users_or_items))) - set(test_idxs))
+    train_idxs = list(set(range(len(rows))) - set(test_idxs))
 
     train_interactions = _subset_interactions(interactions=interactions,
                                               idxs=train_idxs)
@@ -304,14 +305,6 @@ def _stratified_split_parallel_worker(interactions: BaseInteractions,
                                       seed: int,
                                       force_split: bool,
                                       opposite_type: Literal['item', 'user'] = 'user') -> np.array:
-    try:
-        if interactions.negative_sample_type == 'item':
-            opposite_type = 'user'
-        elif interactions.negative_sample_type == 'user':
-            opposite_type = 'item'
-    except AttributeError:
-        opposite_type = 'user'
-
     try:
         _, test_idxs = train_test_split(idxs_to_split,
                                         test_size=test_p,

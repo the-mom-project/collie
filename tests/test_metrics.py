@@ -89,7 +89,9 @@ def test_get_preds_implicit_negative_sample_user(
     n_items, n_users = test_implicit_predicted_scores_negative_sample_user.shape
     item_ids = np.arange(n_items)
     model.train_loader.negative_sample_type = 'user'
-    model.return_value = test_implicit_predicted_scores_negative_sample_user.reshape(12)
+    model.return_value = test_implicit_predicted_scores_negative_sample_user.reshape(
+        torch.numel(test_implicit_predicted_scores_negative_sample_user)
+    )
     actual_preds = _get_preds(model=model,
                               row_ids=item_ids,
                               n_cols=n_users,
