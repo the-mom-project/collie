@@ -188,9 +188,11 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
     dramatically speeds up a traditional DataLoader's process of calling ``__getitem__`` one index
     at a time, then concatenating them together before returning. In an effort to batch operations
     together, all negative samples returned will be approximate, meaning this does not check if a
-    user or item has previously interacted with the item or user, respectively. With a sufficient
-    number of interactions (1M+), we have found a speed increase of 2x at the cost of a 1% reduction
-    in MAP @ 10 performance compared to ``InteractionsDataLoader``.
+    user or item, depending on ``interactions.negative_sample_type`` (user when
+    ``negative_sample_type == 'item'``, item when ``negative_sample_type == 'user'``) has previously
+    interacted with the item or user, respectively. With a sufficient number of interactions (1M+),
+    we have found a speed increase of 2x at the cost of a 1% reduction in MAP @ 10 performance
+    compared to ``InteractionsDataLoader``.
 
     For greater efficiency, we disable automated batching by setting the DataLoader's
     ``batch_size`` attribute to ``None``. Thus,

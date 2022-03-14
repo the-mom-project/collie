@@ -15,12 +15,28 @@ def test_implicit_interactions():
 
 
 @pytest.fixture()
+def test_implicit_interactions_negative_sample_user():
+    return Interactions(
+        users=[0, 0, 0, 1, 1, 1, 2, 2],
+        items=[0, 1, 2, 1, 2, 3, 0, 2],
+        ratings=[1, 1, 1, 1, 1, 1, 1, 1],
+        negative_sample_type='user',
+        check_num_negative_samples_is_valid=False,
+    )
+
+
+@pytest.fixture()
 def test_implicit_predicted_scores():
     return torch.tensor([
         [0.9, 0.4, 0.5, 0.7],
         [0.1, 1.2, 1.7, 0.12],
         [-1, -2, -3, 4],
     ])
+
+
+@pytest.fixture()
+def test_implicit_predicted_scores_negative_sample_user(test_implicit_predicted_scores):
+    return test_implicit_predicted_scores.transpose(0, 1)
 
 
 @pytest.fixture()
@@ -72,4 +88,13 @@ def metrics():
         'auc': 0.5277777,
         'mse': 5.86055,
         'mae': 1.69750,
+    }
+
+
+@pytest.fixture()
+def metrics_negative_sample_user():
+    return {
+        'mapk': 0.791666666,
+        'mrr': 0.8333333,
+        'auc': 0.375,
     }

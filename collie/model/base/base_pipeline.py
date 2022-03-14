@@ -588,7 +588,9 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
               - Expected Meaning
               - Model Type
             * - ``((X, Y), Z)``
-              - ``((user IDs, item IDs), negative item or user IDs)``
+              - ``((user IDs, item IDs), negative item or user IDs depending on
+              ``train_loader.negative_sample_type`` (user when ``negative_sample_type == 'user'``,
+              item when ``negative_sample_type == 'item'``))``
               - **Implicit**
             * - ``(X, Y, Z)``
               - ``(user IDs, item IDs, ratings)``
@@ -607,7 +609,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             # TODO: see if there is a way to not have to transpose each time - probably a bit costly
             neg_ids = torch.transpose(neg_ids, 0, 1).long()
 
-            # get positive item predictions from model
+            # get positive predictions from model
             pos_preds = self(users, items)
 
             # get negative predictions from model

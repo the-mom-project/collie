@@ -259,10 +259,11 @@ class Interactions(BaseInteractions):
         items who have fewer interactions than ``num_negative_samples``, a random sample including
         positive IDs will be returned as negative
     max_number_of_samples_to_consider: int
-        Number of samples to try for a given user or item before returning an approximate negative
-        sample. This should be greater than ``num_negative_samples``. If set to ``0``, approximate
-        negative sampling will be used by default in ``__getitem__`` and a positive set lookup
-        dictionary will NOT be built
+        Number of samples to try for a given user or item, depending on ``negative_sample_type``
+        (user when ``negative_sample_type == 'item'``, item when ``negative_sample_type == 'user'``)
+        before returning an approximate negative sample. This should be greater than
+        ``num_negative_samples``. If set to ``0``, approximate negative sampling will be used by
+        default in ``__getitem__`` and a positive set lookup dictionary will NOT be built
     seed: int
         Seed for random sampling
 

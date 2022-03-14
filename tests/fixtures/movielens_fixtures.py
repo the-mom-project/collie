@@ -45,6 +45,7 @@ def movielens_implicit_interactions(movielens_implicit_df):
     return Interactions(users=movielens_implicit_df['user_id'],
                         items=movielens_implicit_df['item_id'],
                         ratings=movielens_implicit_df['rating'],
+                        negative_sample_type='item',
                         num_negative_samples=10,
                         max_number_of_samples_to_consider=200,
                         allow_missing_ids=True)
@@ -83,6 +84,7 @@ def train_val_implicit_data(movielens_implicit_interactions):
         val_p=0.,
         test_p=0.2,
         seed=42,
+        processes=0,
     )
 
 
@@ -95,6 +97,8 @@ def train_val_implicit_data_user_negative_sample_type(
         val_p=0.,
         test_p=0.2,
         seed=42,
+        force_split=True,
+        processes=0,
     )
 
 
@@ -105,6 +109,7 @@ def train_val_explicit_data(movielens_explicit_interactions):
         val_p=0.,
         test_p=0.2,
         seed=42,
+        processes=0,
     )
 
 
