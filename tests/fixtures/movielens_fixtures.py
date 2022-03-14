@@ -98,6 +98,7 @@ def train_val_implicit_data_user_negative_sample_type(
         test_p=0.2,
         seed=42,
         force_split=True,
+        processes=0,
     )
 
 
@@ -108,6 +109,7 @@ def train_val_explicit_data(movielens_explicit_interactions):
         val_p=0.,
         test_p=0.2,
         seed=42,
+        processes=0,
     )
 
 
