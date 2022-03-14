@@ -39,7 +39,7 @@ def run_movielens_example(epochs: int = 20, gpus: int = 0) -> None:
     interactions = Interactions(users=df_imp['user_id'],
                                 items=df_imp['item_id'],
                                 allow_missing_ids=True)
-    train, val, test = stratified_split(interactions, val_p=0.1, test_p=0.1)
+    train, val, test = stratified_split(interactions, val_p=0.1, test_p=0.1, processes=0)
     train_loader = InteractionsDataLoader(train, batch_size=1024, shuffle=True)
     val_loader = InteractionsDataLoader(val, batch_size=1024, shuffle=False)
     t.timecheck('  2.0 complete')
